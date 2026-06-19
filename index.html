@@ -154,6 +154,63 @@
         }
         .rel-link:hover { background: #eff6ff; }
 
+        .chord-table tr[data-chord-idx] { cursor: pointer; transition: background 0.15s; }
+        .chord-table tr[data-chord-idx]:hover td { background: #fafaf9; }
+        .chord-table tr.active-chord td { background: #eff6ff; }
+
+        #chord-tones {
+            margin-top: 0.25rem;
+            padding: 0.85rem;
+            background: #f8fafc;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+        }
+        #chord-tones h4 {
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+        #chord-tones .tone-color {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 3px;
+            margin-right: 0.4rem;
+            vertical-align: middle;
+        }
+        .tones-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.88rem;
+        }
+        .tones-table th {
+            text-align: left;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: #a8a29e;
+            padding: 0 0 0.3rem 0;
+            font-weight: 500;
+        }
+        .tones-table td {
+            padding: 0.3rem 0;
+            border-top: 1px solid #eef0f2;
+        }
+        .tones-table .note-cell { font-weight: 600; }
+        .tones-table .interval-cell { color: #57534e; }
+
+        .scale-sequence {
+            font-size: 1rem;
+            font-weight: 500;
+            letter-spacing: 0.04em;
+            color: #1c1917;
+            line-height: 1.6;
+        }
+        .scale-sequence .note { font-weight: 600; }
+        .scale-sequence .sep { color: #c8c4bc; margin: 0 0.15em; }
+        .staff-svg { width: 100%; height: auto; margin-top: 0.6rem; }
+        .piano-svg { width: 100%; height: auto; margin-top: 0.6rem; }
+
         @media (max-width: 950px) {
             main { flex-direction: column; align-items: center; }
             #circle-container { flex: none; max-width: 480px; width: 100%; }
@@ -223,6 +280,37 @@
             leadingTone: '#d97706'
         };
 
+        var MAJOR_SCALES = [
+            ['C','D','E','F','G','A','B'],
+            ['G','A','B','C','D','E','F♯'],
+            ['D','E','F♯','G','A','B','C♯'],
+            ['A','B','C♯','D','E','F♯','G♯'],
+            ['E','F♯','G♯','A','B','C♯','D♯'],
+            ['B','C♯','D♯','E','F♯','G♯','A♯'],
+            ['F♯','G♯','A♯','B','C♯','D♯','E♯'],
+            ['D♭','E♭','F','G♭','A♭','B♭','C'],
+            ['A♭','B♭','C','D♭','E♭','F','G'],
+            ['E♭','F','G','A♭','B♭','C','D'],
+            ['B♭','C','D','E♭','F','G','A'],
+            ['F','G','A','B♭','C','D','E']
+        ];
+
+        var CHORD_DEGREES = [
+            [0, 2, 4],
+            [1, 3, 5],
+            [2, 4, 6],
+            [3, 5, 0],
+            [4, 6, 1],
+            [5, 0, 2],
+            [6, 1, 3]
+        ];
+
+        var INTERVAL_NAMES = {
+            'Major':      ['Root', 'Major Third', 'Perfect Fifth'],
+            'Minor':      ['Root', 'Minor Third', 'Perfect Fifth'],
+            'Diminished': ['Root', 'Minor Third', 'Diminished Fifth']
+        };
+
         var svg = document.getElementById('circle-svg');
         var infoDefault = document.getElementById('info-default');
         var infoDetail  = document.getElementById('info-detail');
@@ -234,6 +322,8 @@
 
         var selectedRing = null;
         var selectedPos  = null;
+        var highlightedChordMap = {};
+        var activeChordIdx = null;
 
         function mod(n, m) { return ((n % m) + m) % m; }
 
@@ -298,6 +388,7 @@
                 });
                 (function(idx) {
                     op.addEventListener('click', function() { selectKey('major', idx); });
+                    op.addEventListener('mouseenter', function() { handleSegmentHover('major', idx); });
                 })(i);
                 svg.appendChild(op);
                 outerPaths.push(op);
@@ -309,6 +400,7 @@
                 });
                 (function(idx) {
                     ip.addEventListener('click', function() { selectKey('minor', idx); });
+                    ip.addEventListener('mouseenter', function() { handleSegmentHover('minor', idx); });
                 })(i);
                 svg.appendChild(ip);
                 innerPaths.push(ip);
@@ -432,6 +524,208 @@
             return k.sigCount + ' flat' + (k.sigCount > 1 ? 's' : '') + ': ' + names2;
         }
 
+        function getScale(ring, pos) {
+            var major = MAJOR_SCALES[pos];
+            if (ring === 'major') return major.slice();
+            return [major[5], major[6], major[0], major[1], major[2], major[3], major[4]];
+        }
+
+        function getChordTones(keyRing, keyPos, chordIdx) {
+            var scale = getScale(keyRing, keyPos);
+            var degrees = CHORD_DEGREES[chordIdx];
+            var chords = getChords(keyRing, keyPos);
+            var intervals = INTERVAL_NAMES[chords[chordIdx].quality];
+            return degrees.map(function(d, i) {
+                return { note: scale[d], interval: intervals[i] };
+            });
+        }
+
+        function handleSegmentHover(ring, pos) {
+            var key = ring + '_' + pos;
+            if (highlightedChordMap.hasOwnProperty(key)) {
+                setActiveChord(highlightedChordMap[key]);
+            }
+        }
+
+        function setActiveChord(idx) {
+            activeChordIdx = idx;
+            var rows = document.querySelectorAll('.chord-table tr[data-chord-idx]');
+            for (var i = 0; i < rows.length; i++) {
+                rows[i].classList.toggle('active-chord', parseInt(rows[i].getAttribute('data-chord-idx'), 10) === idx);
+            }
+            showChordTones(idx);
+        }
+
+        function showChordTones(chordIdx) {
+            var container = document.getElementById('chord-tones');
+            if (!container || selectedRing === null) return;
+
+            var tones = getChordTones(selectedRing, selectedPos, chordIdx);
+            var chords = getChords(selectedRing, selectedPos);
+            var chord = chords[chordIdx];
+            var name = chordDisplayName(chord.ring, chord.pos, chord.quality);
+
+            var html = '<h4><span class="tone-color" style="background:' + chord.color + '"></span>' + esc(chord.num) + ' — ' + esc(name) + '</h4>';
+            html += '<table class="tones-table">';
+            html += '<tr><th>Note</th><th>Interval</th></tr>';
+            for (var i = 0; i < tones.length; i++) {
+                html += '<tr><td class="note-cell">' + esc(tones[i].note) + '</td>';
+                html += '<td class="interval-cell">' + esc(tones[i].interval) + '</td></tr>';
+            }
+            html += '</table>';
+            container.innerHTML = html;
+            container.style.display = '';
+        }
+
+        function renderScaleSection(ring, pos) {
+            var scale = getScale(ring, pos);
+            var notes8 = scale.concat([scale[0]]);
+
+            var html = '<p class="scale-sequence">';
+            for (var i = 0; i < notes8.length; i++) {
+                if (i > 0) html += '<span class="sep"> – </span>';
+                html += '<span class="note">' + esc(notes8[i]) + '</span>';
+            }
+            html += '</p>';
+            html += renderStaffSvg(notes8);
+            html += renderPianoSvg(notes8);
+            return html;
+        }
+
+        function renderStaffSvg(notes) {
+            var ROOT_POS = { C: 0, D: 1, E: 2, F: 3, G: 4, A: 5, B: -1 };
+            var startPos = ROOT_POS[notes[0].charAt(0)];
+
+            function yOf(p) { return 80 - p * 5; }
+
+            var s = '<svg class="staff-svg" viewBox="0 0 390 108" xmlns="http://www.w3.org/2000/svg">';
+
+            for (var l = 2; l <= 10; l += 2) {
+                s += '<line x1="10" y1="' + yOf(l) + '" x2="380" y2="' + yOf(l) + '" stroke="#c8c4bc" stroke-width="1"/>';
+            }
+
+            s += '<text x="14" y="76" font-size="64" fill="#44403c" font-family="\'Noto Music\',\'Segoe UI Symbol\',serif" letter-spacing="0">&#x1D11E;</text>';
+
+            var noteX0 = 75;
+            var noteSpacing = (notes.length > 1) ? (365 - noteX0) / (notes.length - 1) : 0;
+
+            for (var i = 0; i < notes.length; i++) {
+                var pos = startPos + i;
+                var x = noteX0 + i * noteSpacing;
+                var y = yOf(pos);
+
+                if (pos <= 0) {
+                    for (var lp = 0; lp >= pos; lp -= 2) {
+                        s += '<line x1="' + (x - 12) + '" y1="' + yOf(lp) + '" x2="' + (x + 12) + '" y2="' + yOf(lp) + '" stroke="#a8a29e" stroke-width="1"/>';
+                    }
+                }
+                if (pos >= 12) {
+                    for (var lp = 12; lp <= pos; lp += 2) {
+                        s += '<line x1="' + (x - 12) + '" y1="' + yOf(lp) + '" x2="' + (x + 12) + '" y2="' + yOf(lp) + '" stroke="#a8a29e" stroke-width="1"/>';
+                    }
+                }
+
+                var acc = '';
+                if (notes[i].indexOf('♯') !== -1) acc = '♯';
+                else if (notes[i].indexOf('♭') !== -1) acc = '♭';
+
+                if (acc) {
+                    s += '<text x="' + (x - 11) + '" y="' + (y + 5) + '" font-size="14" fill="#44403c" text-anchor="end" font-family="serif">' + acc + '</text>';
+                }
+
+                s += '<ellipse cx="' + x + '" cy="' + y + '" rx="6" ry="4.5" fill="none" stroke="#1c1917" stroke-width="1.8" transform="rotate(-10,' + x + ',' + y + ')"/>';
+
+                s += '<text x="' + x + '" y="' + (yOf(-1) + 18) + '" font-size="10" fill="#78716c" text-anchor="middle" font-family="\'Segoe UI\',system-ui,sans-serif">' + notes[i] + '</text>';
+            }
+
+            s += '</svg>';
+            return s;
+        }
+
+        function renderPianoSvg(notes) {
+            var BASES = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+            var WHITE_LETTERS = ['C','D','E','F','G','A','B'];
+            var WHITE_SEMIS = [0, 2, 4, 5, 7, 9, 11];
+            var BLACK_DEFS = [
+                { after: 0, semi: 1 },
+                { after: 1, semi: 3 },
+                { after: 3, semi: 6 },
+                { after: 4, semi: 8 },
+                { after: 5, semi: 10 }
+            ];
+
+            function toSemi(n) {
+                var v = BASES[n.charAt(0)];
+                if (n.indexOf('♯') !== -1) v++;
+                if (n.indexOf('♭') !== -1) v--;
+                return ((v % 12) + 12) % 12;
+            }
+
+            var absList = [], prev = -1, off = 0;
+            for (var i = 0; i < notes.length; i++) {
+                var sv = toSemi(notes[i]);
+                if (i > 0 && sv <= prev) off += 12;
+                absList.push(off + sv);
+                prev = sv;
+            }
+
+            var hlMap = {};
+            for (var i = 0; i < absList.length; i++) hlMap[absList[i]] = notes[i];
+
+            var KW = 24, KH = 78, BW = 14, BH = 48, X0 = 15, NW = 15;
+            var VW = 390;
+
+            function kp(x, y, w, h, r) {
+                return 'M'+x+' '+y+'L'+(x+w)+' '+y+'L'+(x+w)+' '+(y+h-r)+
+                    'Q'+(x+w)+' '+(y+h)+' '+(x+w-r)+' '+(y+h)+
+                    'L'+(x+r)+' '+(y+h)+'Q'+x+' '+(y+h)+' '+x+' '+(y+h-r)+'Z';
+            }
+
+            var p = '<svg class="piano-svg" viewBox="0 0 '+VW+' 82" xmlns="http://www.w3.org/2000/svg">';
+
+            for (var w = 0; w < NW; w++) {
+                var semi = Math.floor(w / 7) * 12 + WHITE_SEMIS[w % 7];
+                var x = X0 + w * KW;
+                var hit = hlMap.hasOwnProperty(semi);
+                p += '<path d="'+kp(x, 0, KW, KH, 3)+'" fill="'+(hit ? '#818cf8' : '#fff')+'" stroke="#a8a29e" stroke-width="1"/>';
+            }
+
+            for (var o = 0; o < 2; o++) {
+                for (var b = 0; b < BLACK_DEFS.length; b++) {
+                    var wi = o * 7 + BLACK_DEFS[b].after;
+                    if (wi + 1 >= NW) continue;
+                    var semi = o * 12 + BLACK_DEFS[b].semi;
+                    var x = X0 + (wi + 1) * KW - BW / 2;
+                    var hit = hlMap.hasOwnProperty(semi);
+                    p += '<path d="'+kp(x, 0, BW, BH, 2)+'" fill="'+(hit ? '#6366f1' : '#1c1917')+'" stroke="#0c0a09" stroke-width="0.5"/>';
+                }
+            }
+
+            for (var w = 0; w < NW; w++) {
+                var semi = Math.floor(w / 7) * 12 + WHITE_SEMIS[w % 7];
+                var x = X0 + w * KW;
+                var hit = hlMap.hasOwnProperty(semi);
+                var lbl = hit ? hlMap[semi] : WHITE_LETTERS[w % 7];
+                var clr = hit ? '#312e81' : '#c8c4bc';
+                var fw = hit ? '700' : '400';
+                p += '<text x="'+(x + KW/2)+'" y="'+(KH - 6)+'" font-size="9.5" fill="'+clr+'" text-anchor="middle" font-weight="'+fw+'" font-family="\'Segoe UI\',system-ui,sans-serif">'+lbl+'</text>';
+            }
+
+            for (var o = 0; o < 2; o++) {
+                for (var b = 0; b < BLACK_DEFS.length; b++) {
+                    var wi = o * 7 + BLACK_DEFS[b].after;
+                    if (wi + 1 >= NW) continue;
+                    var semi = o * 12 + BLACK_DEFS[b].semi;
+                    if (!hlMap.hasOwnProperty(semi)) continue;
+                    var x = X0 + (wi + 1) * KW - BW / 2;
+                    p += '<text x="'+(x + BW/2)+'" y="'+(BH - 5)+'" font-size="8" fill="#e0e7ff" text-anchor="middle" font-weight="600" font-family="\'Segoe UI\',system-ui,sans-serif">'+hlMap[semi]+'</text>';
+                }
+            }
+
+            p += '</svg>';
+            return p;
+        }
+
         function selectKey(ring, pos) {
             if (selectedRing === ring && selectedPos === pos) {
                 clearSelection();
@@ -439,6 +733,7 @@
             }
             selectedRing = ring;
             selectedPos  = pos;
+            activeChordIdx = null;
             updateCircle();
             updatePanel();
         }
@@ -446,6 +741,8 @@
         function clearSelection() {
             selectedRing = null;
             selectedPos  = null;
+            activeChordIdx = null;
+            highlightedChordMap = {};
             updateCircle();
             infoDetail.style.display = 'none';
             infoDefault.style.display = 'block';
@@ -468,6 +765,7 @@
                     outerTexts[i].setAttribute('fill', '#1c1917');
                     innerTexts[i].setAttribute('fill', '#1c1917');
                     outerSigTexts[i].setAttribute('fill', '#a8a29e');
+                    outerSigTexts[i].setAttribute('visibility', 'visible');
                 }
                 centerLine1.textContent = 'Click a key';
                 centerLine1.setAttribute('font-size', '14');
@@ -489,11 +787,14 @@
                 outerTexts[i].setAttribute('fill', '#c8c4bc');
                 innerTexts[i].setAttribute('fill', '#c8c4bc');
                 outerSigTexts[i].setAttribute('fill', '#ddd9d2');
+                outerSigTexts[i].setAttribute('visibility', 'visible');
             }
 
             var chords = getChords(selectedRing, selectedPos);
+            highlightedChordMap = {};
             for (var c = 0; c < chords.length; c++) {
                 var ch = chords[c];
+                highlightedChordMap[ch.ring + '_' + ch.pos] = c;
                 var paths = ch.ring === 'major' ? outerPaths : innerPaths;
                 var texts = ch.ring === 'major' ? outerTexts : innerTexts;
                 paths[ch.pos].setAttribute('fill', ch.color);
@@ -505,7 +806,7 @@
                 }
 
                 texts[ch.pos].setAttribute('fill', '#fff');
-                if (ch.ring === 'major') outerSigTexts[ch.pos].setAttribute('fill', 'rgba(255,255,255,0.7)');
+                if (ch.ring === 'major') outerSigTexts[ch.pos].setAttribute('visibility', 'hidden');
 
                 var tr = ch.ring === 'major' ? OUTER_TEXT_R : INNER_TEXT_R;
                 var tp = textPos(tr, ch.pos);
@@ -570,19 +871,25 @@
             html += '</div>';
 
             html += '<div class="info-section">';
+            html += '<h3>Scale Notes</h3>';
+            html += renderScaleSection(selectedRing, selectedPos);
+            html += '</div>';
+
+            html += '<div class="info-section">';
             html += '<h3>Diatonic Chords</h3>';
             html += '<table class="chord-table">';
             html += '<tr><th>Numeral</th><th>Chord</th><th>Quality</th></tr>';
             for (var i = 0; i < chords.length; i++) {
                 var ch = chords[i];
                 var cn = chordDisplayName(ch.ring, ch.pos, ch.quality);
-                html += '<tr>';
+                html += '<tr data-chord-idx="' + i + '">';
                 html += '<td class="numeral-cell" style="color:' + ch.color + '">' + esc(ch.num) + '</td>';
                 html += '<td class="chord-name-cell">' + esc(cn) + '</td>';
                 html += '<td class="quality-cell">' + ch.quality + '</td>';
                 html += '</tr>';
             }
             html += '</table>';
+            html += '<div id="chord-tones" style="display:none"></div>';
             html += '</div>';
 
             html += '<div class="info-section">';
@@ -612,6 +919,24 @@
                     var p = parseInt(this.getAttribute('data-pos'), 10);
                     selectKey(r, p);
                 });
+            }
+
+            var chordRows = infoDetail.querySelectorAll('.chord-table tr[data-chord-idx]');
+            for (var k = 0; k < chordRows.length; k++) {
+                chordRows[k].addEventListener('click', function() {
+                    var idx = parseInt(this.getAttribute('data-chord-idx'), 10);
+                    if (activeChordIdx === idx) {
+                        activeChordIdx = null;
+                        this.classList.remove('active-chord');
+                        document.getElementById('chord-tones').style.display = 'none';
+                    } else {
+                        setActiveChord(idx);
+                    }
+                });
+            }
+
+            if (activeChordIdx !== null) {
+                setActiveChord(activeChordIdx);
             }
         }
 
