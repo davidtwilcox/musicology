@@ -1,0 +1,953 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Musicology — Interactive Music Theory</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: #fafaf9;
+            color: #1c1917;
+            min-height: 100vh;
+        }
+
+        header {
+            text-align: center;
+            padding: 1.25rem 1rem;
+            border-bottom: 1px solid #e7e5e4;
+            background: #fff;
+        }
+        header h1 { font-size: 1.4rem; font-weight: 700; letter-spacing: -0.02em; }
+        header p { font-size: 0.85rem; color: #78716c; margin-top: 0.15rem; }
+
+        main {
+            display: flex;
+            gap: 2rem;
+            padding: 2rem;
+            max-width: 1100px;
+            margin: 0 auto;
+            align-items: flex-start;
+        }
+
+        #circle-container {
+            flex: 0 0 500px;
+            position: relative;
+        }
+        #circle-svg {
+            width: 100%;
+            height: auto;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        .segment {
+            transition: fill 0.2s ease, stroke 0.2s ease;
+            cursor: pointer;
+        }
+        .segment:hover { filter: brightness(0.93); }
+
+        .key-label {
+            pointer-events: none;
+            font-weight: 600;
+            transition: fill 0.2s ease;
+        }
+        .key-sig-label {
+            pointer-events: none;
+            font-size: 10px;
+            fill: #a8a29e;
+            transition: fill 0.2s ease;
+        }
+        .roman-label {
+            pointer-events: none;
+            font-weight: 700;
+            fill: #fff;
+            font-size: 11px;
+        }
+
+        #info-panel {
+            flex: 1;
+            background: #fff;
+            border-radius: 12px;
+            padding: 1.75rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
+            min-width: 260px;
+        }
+
+        #info-default h2 { font-size: 1.2rem; margin-bottom: 0.75rem; }
+        #info-default p { font-size: 0.9rem; color: #57534e; line-height: 1.6; margin-bottom: 0.5rem; }
+
+        .detail-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1.25rem;
+        }
+        .detail-header h2 { font-size: 1.3rem; }
+        #clear-btn {
+            background: #f5f5f4;
+            border: 1px solid #d6d3d1;
+            border-radius: 6px;
+            padding: 0.3rem 0.75rem;
+            font-size: 0.8rem;
+            cursor: pointer;
+            color: #57534e;
+            transition: background 0.15s;
+        }
+        #clear-btn:hover { background: #e7e5e4; }
+
+        .info-section { margin-bottom: 1.25rem; }
+        .info-section h3 {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #a8a29e;
+            margin-bottom: 0.5rem;
+        }
+        .info-section p { font-size: 0.9rem; line-height: 1.5; }
+
+        .chord-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.88rem;
+        }
+        .chord-table th {
+            text-align: left;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: #a8a29e;
+            padding: 0 0 0.4rem 0;
+            font-weight: 500;
+        }
+        .chord-table td {
+            padding: 0.35rem 0;
+            border-top: 1px solid #f5f5f4;
+        }
+        .chord-table .numeral-cell {
+            font-weight: 700;
+            width: 3.5rem;
+        }
+        .chord-table .chord-name-cell { font-weight: 500; }
+        .chord-table .quality-cell { color: #78716c; font-size: 0.82rem; }
+
+        .relationship-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.45rem 0;
+            border-top: 1px solid #f5f5f4;
+        }
+        .relationship-row:first-child { border-top: none; }
+        .rel-label { color: #78716c; font-size: 0.85rem; }
+        .rel-link {
+            color: #2563eb;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            transition: background 0.15s;
+        }
+        .rel-link:hover { background: #eff6ff; }
+
+        .chord-table tr[data-chord-idx] { cursor: pointer; transition: background 0.15s; }
+        .chord-table tr[data-chord-idx]:hover td { background: #fafaf9; }
+        .chord-table tr.active-chord td { background: #eff6ff; }
+
+        #chord-tones {
+            margin-top: 0.25rem;
+            padding: 0.85rem;
+            background: #f8fafc;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+        }
+        #chord-tones h4 {
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+        #chord-tones .tone-color {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 3px;
+            margin-right: 0.4rem;
+            vertical-align: middle;
+        }
+        .tones-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.88rem;
+        }
+        .tones-table th {
+            text-align: left;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: #a8a29e;
+            padding: 0 0 0.3rem 0;
+            font-weight: 500;
+        }
+        .tones-table td {
+            padding: 0.3rem 0;
+            border-top: 1px solid #eef0f2;
+        }
+        .tones-table .note-cell { font-weight: 600; }
+        .tones-table .interval-cell { color: #57534e; }
+
+        .scale-sequence {
+            font-size: 1rem;
+            font-weight: 500;
+            letter-spacing: 0.04em;
+            color: #1c1917;
+            line-height: 1.6;
+        }
+        .scale-sequence .note { font-weight: 600; }
+        .scale-sequence .sep { color: #c8c4bc; margin: 0 0.15em; }
+        .staff-svg { width: 100%; height: auto; margin-top: 0.6rem; }
+        .piano-svg { width: 100%; height: auto; margin-top: 0.6rem; }
+
+        @media (max-width: 950px) {
+            main { flex-direction: column; align-items: center; }
+            #circle-container { flex: none; max-width: 480px; width: 100%; }
+            #info-panel { width: 100%; max-width: 480px; }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Musicology</h1>
+        <p>Interactive Music Theory Explorer</p>
+    </header>
+    <main>
+        <div id="circle-container">
+            <svg id="circle-svg" viewBox="-265 -265 530 530" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Interactive Circle of Fifths diagram"></svg>
+        </div>
+        <div id="info-panel">
+            <div id="info-default">
+                <h2>Circle of Fifths</h2>
+                <p>Click on any key in the circle to explore its diatonic chords and key relationships.</p>
+                <p>The <strong>outer ring</strong> shows major keys arranged by ascending fifths clockwise. The <strong>inner ring</strong> shows their relative minor keys.</p>
+                <p>Adjacent keys on the circle differ by one sharp or flat, making the circle a map of harmonic proximity.</p>
+            </div>
+            <div id="info-detail" style="display:none"></div>
+        </div>
+    </main>
+
+    <script>
+    (function() {
+        'use strict';
+
+        var SVG_NS = 'http://www.w3.org/2000/svg';
+        var OUTER_R1 = 172, OUTER_R2 = 248;
+        var INNER_R1 = 97, INNER_R2 = 167;
+        var OUTER_TEXT_R = (OUTER_R1 + OUTER_R2) / 2;
+        var INNER_TEXT_R = (INNER_R1 + INNER_R2) / 2;
+        var DEFAULT_OUTER = '#f0ece5';
+        var DEFAULT_INNER = '#e4dfd6';
+        var FADED_OUTER = '#f7f5f2';
+        var FADED_INNER = '#edeae5';
+
+        var KEYS = [
+            { major: 'C',  minor: 'Am',  sigCount: 0,  sigType: '' },
+            { major: 'G',  minor: 'Em',  sigCount: 1,  sigType: '♯' },
+            { major: 'D',  minor: 'Bm',  sigCount: 2,  sigType: '♯' },
+            { major: 'A',  minor: 'F♯m', sigCount: 3, sigType: '♯' },
+            { major: 'E',  minor: 'C♯m', sigCount: 4, sigType: '♯' },
+            { major: 'B',  minor: 'G♯m', sigCount: 5, sigType: '♯' },
+            { major: 'F♯/G♭', minor: 'D♯m/E♭m', sigCount: 6, sigType: '♯/♭', altMajor: 'G♭', altMinor: 'E♭m' },
+            { major: 'D♭', minor: 'B♭m', sigCount: 5, sigType: '♭' },
+            { major: 'A♭', minor: 'Fm',  sigCount: 4, sigType: '♭' },
+            { major: 'E♭', minor: 'Cm',  sigCount: 3, sigType: '♭' },
+            { major: 'B♭', minor: 'Gm',  sigCount: 2, sigType: '♭' },
+            { major: 'F',  minor: 'Dm',  sigCount: 1,  sigType: '♭' }
+        ];
+
+        var SHARPS_ORDER = ['F♯','C♯','G♯','D♯','A♯','E♯'];
+        var FLATS_ORDER  = ['B♭','E♭','A♭','D♭','G♭','C♭'];
+
+        var CHORD_COLORS = {
+            tonic:       '#2563eb',
+            supertonic:  '#7c3aed',
+            mediant:     '#db2777',
+            subdominant: '#16a34a',
+            dominant:    '#dc2626',
+            submediant:  '#0891b2',
+            leadingTone: '#d97706'
+        };
+
+        var MAJOR_SCALES = [
+            ['C','D','E','F','G','A','B'],
+            ['G','A','B','C','D','E','F♯'],
+            ['D','E','F♯','G','A','B','C♯'],
+            ['A','B','C♯','D','E','F♯','G♯'],
+            ['E','F♯','G♯','A','B','C♯','D♯'],
+            ['B','C♯','D♯','E','F♯','G♯','A♯'],
+            ['F♯','G♯','A♯','B','C♯','D♯','E♯'],
+            ['D♭','E♭','F','G♭','A♭','B♭','C'],
+            ['A♭','B♭','C','D♭','E♭','F','G'],
+            ['E♭','F','G','A♭','B♭','C','D'],
+            ['B♭','C','D','E♭','F','G','A'],
+            ['F','G','A','B♭','C','D','E']
+        ];
+
+        var CHORD_DEGREES = [
+            [0, 2, 4],
+            [1, 3, 5],
+            [2, 4, 6],
+            [3, 5, 0],
+            [4, 6, 1],
+            [5, 0, 2],
+            [6, 1, 3]
+        ];
+
+        var INTERVAL_NAMES = {
+            'Major':      ['Root', 'Major Third', 'Perfect Fifth'],
+            'Minor':      ['Root', 'Minor Third', 'Perfect Fifth'],
+            'Diminished': ['Root', 'Minor Third', 'Diminished Fifth']
+        };
+
+        var svg = document.getElementById('circle-svg');
+        var infoDefault = document.getElementById('info-default');
+        var infoDetail  = document.getElementById('info-detail');
+
+        var outerPaths = [], innerPaths = [];
+        var outerTexts = [], innerTexts = [];
+        var outerSigTexts = [];
+        var romanGroup;
+
+        var selectedRing = null;
+        var selectedPos  = null;
+        var highlightedChordMap = {};
+        var activeChordIdx = null;
+
+        function mod(n, m) { return ((n % m) + m) % m; }
+
+        function stripMinor(name) {
+            if (name.indexOf('/') !== -1) {
+                return name.split('/').map(function(n) { return n.replace(/m$/, ''); }).join('/');
+            }
+            return name.replace(/m$/, '');
+        }
+
+        function toRad(deg) { return deg * Math.PI / 180; }
+
+        function arcPath(r1, r2, idx) {
+            var cDeg = -90 + idx * 30;
+            var s = toRad(cDeg - 14.5);
+            var e = toRad(cDeg + 14.5);
+            var x1 = r2 * Math.cos(s), y1 = r2 * Math.sin(s);
+            var x2 = r2 * Math.cos(e), y2 = r2 * Math.sin(e);
+            var x3 = r1 * Math.cos(e), y3 = r1 * Math.sin(e);
+            var x4 = r1 * Math.cos(s), y4 = r1 * Math.sin(s);
+            return 'M ' + x1 + ' ' + y1 +
+                   ' A ' + r2 + ' ' + r2 + ' 0 0 1 ' + x2 + ' ' + y2 +
+                   ' L ' + x3 + ' ' + y3 +
+                   ' A ' + r1 + ' ' + r1 + ' 0 0 0 ' + x4 + ' ' + y4 + ' Z';
+        }
+
+        function textPos(radius, idx) {
+            var a = toRad(-90 + idx * 30);
+            return { x: radius * Math.cos(a), y: radius * Math.sin(a) };
+        }
+
+        function svgEl(tag, attrs) {
+            var el = document.createElementNS(SVG_NS, tag);
+            for (var k in attrs) {
+                if (attrs.hasOwnProperty(k)) el.setAttribute(k, attrs[k]);
+            }
+            return el;
+        }
+
+        function buildCircle() {
+            var ringLabel1 = svgEl('text', {
+                x: 0, y: -OUTER_R2 - 8,
+                'text-anchor': 'middle', 'font-size': '11', fill: '#a8a29e',
+                'font-weight': '600', 'letter-spacing': '0.06em'
+            });
+            ringLabel1.textContent = 'MAJOR';
+            svg.appendChild(ringLabel1);
+
+            var ringLabel2 = svgEl('text', {
+                x: 0, y: -INNER_R2 - 8,
+                'text-anchor': 'middle', 'font-size': '10', fill: '#a8a29e',
+                'font-weight': '500', 'letter-spacing': '0.06em'
+            });
+            ringLabel2.textContent = 'MINOR';
+            svg.appendChild(ringLabel2);
+
+            for (var i = 0; i < 12; i++) {
+                var op = svgEl('path', {
+                    d: arcPath(OUTER_R1, OUTER_R2, i),
+                    fill: DEFAULT_OUTER, stroke: '#fff', 'stroke-width': '2.5',
+                    class: 'segment'
+                });
+                (function(idx) {
+                    op.addEventListener('click', function() { selectKey('major', idx); });
+                    op.addEventListener('mouseenter', function() { handleSegmentHover('major', idx); });
+                })(i);
+                svg.appendChild(op);
+                outerPaths.push(op);
+
+                var ip = svgEl('path', {
+                    d: arcPath(INNER_R1, INNER_R2, i),
+                    fill: DEFAULT_INNER, stroke: '#fff', 'stroke-width': '2.5',
+                    class: 'segment'
+                });
+                (function(idx) {
+                    ip.addEventListener('click', function() { selectKey('minor', idx); });
+                    ip.addEventListener('mouseenter', function() { handleSegmentHover('minor', idx); });
+                })(i);
+                svg.appendChild(ip);
+                innerPaths.push(ip);
+            }
+
+            for (var i = 0; i < 12; i++) {
+                var op2 = textPos(OUTER_TEXT_R, i);
+                var isPos6 = (i === 6);
+                var oText = svgEl('text', {
+                    x: op2.x, y: op2.y + (isPos6 ? -4 : 1),
+                    'text-anchor': 'middle', 'dominant-baseline': 'central',
+                    'font-size': isPos6 ? '13' : '16',
+                    class: 'key-label', fill: '#1c1917'
+                });
+                oText.textContent = KEYS[i].major;
+                svg.appendChild(oText);
+                outerTexts.push(oText);
+
+                var sigText = svgEl('text', {
+                    x: op2.x, y: op2.y + (isPos6 ? 10 : 14),
+                    'text-anchor': 'middle', 'dominant-baseline': 'central',
+                    class: 'key-sig-label'
+                });
+                if (KEYS[i].sigCount > 0) {
+                    sigText.textContent = KEYS[i].sigCount + KEYS[i].sigType;
+                }
+                svg.appendChild(sigText);
+                outerSigTexts.push(sigText);
+
+                var ip2 = textPos(INNER_TEXT_R, i);
+                var iText = svgEl('text', {
+                    x: ip2.x, y: ip2.y + 1,
+                    'text-anchor': 'middle', 'dominant-baseline': 'central',
+                    'font-size': isPos6 ? '10.5' : '13',
+                    class: 'key-label', fill: '#1c1917'
+                });
+                iText.textContent = KEYS[i].minor;
+                svg.appendChild(iText);
+                innerTexts.push(iText);
+            }
+
+            romanGroup = svgEl('g', {});
+            svg.appendChild(romanGroup);
+
+            var centerCircle = svgEl('circle', {
+                cx: 0, cy: 0, r: INNER_R1 - 4,
+                fill: '#fff', stroke: '#e7e5e4', 'stroke-width': '1'
+            });
+            svg.appendChild(centerCircle);
+
+            var centerText1 = svgEl('text', {
+                id: 'center-line1', x: 0, y: -10,
+                'text-anchor': 'middle', 'dominant-baseline': 'central',
+                'font-size': '14', fill: '#a8a29e', 'font-weight': '500'
+            });
+            centerText1.textContent = 'Click a key';
+            svg.appendChild(centerText1);
+
+            var centerText2 = svgEl('text', {
+                id: 'center-line2', x: 0, y: 10,
+                'text-anchor': 'middle', 'dominant-baseline': 'central',
+                'font-size': '12', fill: '#a8a29e'
+            });
+            centerText2.textContent = 'to explore';
+            svg.appendChild(centerText2);
+        }
+
+        function getChords(ring, pos) {
+            if (ring === 'major') {
+                return [
+                    { num: 'I',     ring: 'major', pos: pos,            color: CHORD_COLORS.tonic,       quality: 'Major' },
+                    { num: 'ii',    ring: 'minor', pos: mod(pos-1, 12), color: CHORD_COLORS.supertonic,  quality: 'Minor' },
+                    { num: 'iii',   ring: 'minor', pos: mod(pos+1, 12), color: CHORD_COLORS.mediant,     quality: 'Minor' },
+                    { num: 'IV',    ring: 'major', pos: mod(pos-1, 12), color: CHORD_COLORS.subdominant, quality: 'Major' },
+                    { num: 'V',     ring: 'major', pos: mod(pos+1, 12), color: CHORD_COLORS.dominant,    quality: 'Major' },
+                    { num: 'vi',    ring: 'minor', pos: pos,            color: CHORD_COLORS.submediant,  quality: 'Minor' },
+                    { num: 'vii°', ring: 'minor', pos: mod(pos+2, 12), color: CHORD_COLORS.leadingTone, quality: 'Diminished' }
+                ];
+            } else {
+                return [
+                    { num: 'i',     ring: 'minor', pos: pos,            color: CHORD_COLORS.tonic,       quality: 'Minor' },
+                    { num: 'ii°', ring: 'minor', pos: mod(pos+2, 12), color: CHORD_COLORS.supertonic,  quality: 'Diminished' },
+                    { num: 'III',   ring: 'major', pos: pos,            color: CHORD_COLORS.mediant,     quality: 'Major' },
+                    { num: 'iv',    ring: 'minor', pos: mod(pos-1, 12), color: CHORD_COLORS.subdominant, quality: 'Minor' },
+                    { num: 'v',     ring: 'minor', pos: mod(pos+1, 12), color: CHORD_COLORS.dominant,    quality: 'Minor' },
+                    { num: 'VI',    ring: 'major', pos: mod(pos-1, 12), color: CHORD_COLORS.submediant,  quality: 'Major' },
+                    { num: 'VII',   ring: 'major', pos: mod(pos+1, 12), color: CHORD_COLORS.leadingTone, quality: 'Major' }
+                ];
+            }
+        }
+
+        function chordDisplayName(ring, pos, quality) {
+            var name = ring === 'major' ? KEYS[pos].major : KEYS[pos].minor;
+            if (quality === 'Diminished') {
+                if (name.indexOf('/') !== -1) {
+                    return name.split('/').map(function(n) { return n.replace(/m$/, '°'); }).join('/');
+                }
+                return name.replace(/m$/, '°');
+            }
+            return name;
+        }
+
+        function keyDisplayName(ring, pos) {
+            var raw = ring === 'major' ? KEYS[pos].major : KEYS[pos].minor;
+            var quality = ring === 'major' ? ' Major' : ' Minor';
+            var root = ring === 'major' ? raw : stripMinor(raw);
+            return root + quality;
+        }
+
+        function keySigDescription(pos) {
+            var k = KEYS[pos];
+            if (k.sigCount === 0) return 'No sharps or flats';
+            if (k.sigType.indexOf('♯') !== -1 && k.sigType.indexOf('♭') !== -1) {
+                return '6 sharps (' + SHARPS_ORDER.join(', ') + ') or 6 flats (' + FLATS_ORDER.join(', ') + ')';
+            }
+            if (k.sigType === '♯') {
+                var names = SHARPS_ORDER.slice(0, k.sigCount).join(', ');
+                return k.sigCount + ' sharp' + (k.sigCount > 1 ? 's' : '') + ': ' + names;
+            }
+            var names2 = FLATS_ORDER.slice(0, k.sigCount).join(', ');
+            return k.sigCount + ' flat' + (k.sigCount > 1 ? 's' : '') + ': ' + names2;
+        }
+
+        function getScale(ring, pos) {
+            var major = MAJOR_SCALES[pos];
+            if (ring === 'major') return major.slice();
+            return [major[5], major[6], major[0], major[1], major[2], major[3], major[4]];
+        }
+
+        function getChordTones(keyRing, keyPos, chordIdx) {
+            var scale = getScale(keyRing, keyPos);
+            var degrees = CHORD_DEGREES[chordIdx];
+            var chords = getChords(keyRing, keyPos);
+            var intervals = INTERVAL_NAMES[chords[chordIdx].quality];
+            return degrees.map(function(d, i) {
+                return { note: scale[d], interval: intervals[i] };
+            });
+        }
+
+        function handleSegmentHover(ring, pos) {
+            var key = ring + '_' + pos;
+            if (highlightedChordMap.hasOwnProperty(key)) {
+                setActiveChord(highlightedChordMap[key]);
+            }
+        }
+
+        function setActiveChord(idx) {
+            activeChordIdx = idx;
+            var rows = document.querySelectorAll('.chord-table tr[data-chord-idx]');
+            for (var i = 0; i < rows.length; i++) {
+                rows[i].classList.toggle('active-chord', parseInt(rows[i].getAttribute('data-chord-idx'), 10) === idx);
+            }
+            showChordTones(idx);
+        }
+
+        function showChordTones(chordIdx) {
+            var container = document.getElementById('chord-tones');
+            if (!container || selectedRing === null) return;
+
+            var tones = getChordTones(selectedRing, selectedPos, chordIdx);
+            var chords = getChords(selectedRing, selectedPos);
+            var chord = chords[chordIdx];
+            var name = chordDisplayName(chord.ring, chord.pos, chord.quality);
+
+            var html = '<h4><span class="tone-color" style="background:' + chord.color + '"></span>' + esc(chord.num) + ' — ' + esc(name) + '</h4>';
+            html += '<table class="tones-table">';
+            html += '<tr><th>Note</th><th>Interval</th></tr>';
+            for (var i = 0; i < tones.length; i++) {
+                html += '<tr><td class="note-cell">' + esc(tones[i].note) + '</td>';
+                html += '<td class="interval-cell">' + esc(tones[i].interval) + '</td></tr>';
+            }
+            html += '</table>';
+            container.innerHTML = html;
+            container.style.display = '';
+        }
+
+        function renderScaleSection(ring, pos) {
+            var scale = getScale(ring, pos);
+            var notes8 = scale.concat([scale[0]]);
+
+            var html = '<p class="scale-sequence">';
+            for (var i = 0; i < notes8.length; i++) {
+                if (i > 0) html += '<span class="sep"> – </span>';
+                html += '<span class="note">' + esc(notes8[i]) + '</span>';
+            }
+            html += '</p>';
+            html += renderStaffSvg(notes8);
+            html += renderPianoSvg(notes8);
+            return html;
+        }
+
+        function renderStaffSvg(notes) {
+            var ROOT_POS = { C: 0, D: 1, E: 2, F: 3, G: 4, A: 5, B: -1 };
+            var startPos = ROOT_POS[notes[0].charAt(0)];
+
+            function yOf(p) { return 80 - p * 5; }
+
+            var s = '<svg class="staff-svg" viewBox="0 0 390 108" xmlns="http://www.w3.org/2000/svg">';
+
+            for (var l = 2; l <= 10; l += 2) {
+                s += '<line x1="10" y1="' + yOf(l) + '" x2="380" y2="' + yOf(l) + '" stroke="#c8c4bc" stroke-width="1"/>';
+            }
+
+            s += '<text x="14" y="76" font-size="64" fill="#44403c" font-family="\'Noto Music\',\'Segoe UI Symbol\',serif" letter-spacing="0">&#x1D11E;</text>';
+
+            var noteX0 = 75;
+            var noteSpacing = (notes.length > 1) ? (365 - noteX0) / (notes.length - 1) : 0;
+
+            for (var i = 0; i < notes.length; i++) {
+                var pos = startPos + i;
+                var x = noteX0 + i * noteSpacing;
+                var y = yOf(pos);
+
+                if (pos <= 0) {
+                    for (var lp = 0; lp >= pos; lp -= 2) {
+                        s += '<line x1="' + (x - 12) + '" y1="' + yOf(lp) + '" x2="' + (x + 12) + '" y2="' + yOf(lp) + '" stroke="#a8a29e" stroke-width="1"/>';
+                    }
+                }
+                if (pos >= 12) {
+                    for (var lp = 12; lp <= pos; lp += 2) {
+                        s += '<line x1="' + (x - 12) + '" y1="' + yOf(lp) + '" x2="' + (x + 12) + '" y2="' + yOf(lp) + '" stroke="#a8a29e" stroke-width="1"/>';
+                    }
+                }
+
+                var acc = '';
+                if (notes[i].indexOf('♯') !== -1) acc = '♯';
+                else if (notes[i].indexOf('♭') !== -1) acc = '♭';
+
+                if (acc) {
+                    s += '<text x="' + (x - 11) + '" y="' + (y + 5) + '" font-size="14" fill="#44403c" text-anchor="end" font-family="serif">' + acc + '</text>';
+                }
+
+                s += '<ellipse cx="' + x + '" cy="' + y + '" rx="6" ry="4.5" fill="none" stroke="#1c1917" stroke-width="1.8" transform="rotate(-10,' + x + ',' + y + ')"/>';
+
+                s += '<text x="' + x + '" y="' + (yOf(-1) + 18) + '" font-size="10" fill="#78716c" text-anchor="middle" font-family="\'Segoe UI\',system-ui,sans-serif">' + notes[i] + '</text>';
+            }
+
+            s += '</svg>';
+            return s;
+        }
+
+        function renderPianoSvg(notes) {
+            var BASES = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+            var WHITE_LETTERS = ['C','D','E','F','G','A','B'];
+            var WHITE_SEMIS = [0, 2, 4, 5, 7, 9, 11];
+            var BLACK_DEFS = [
+                { after: 0, semi: 1 },
+                { after: 1, semi: 3 },
+                { after: 3, semi: 6 },
+                { after: 4, semi: 8 },
+                { after: 5, semi: 10 }
+            ];
+
+            function toSemi(n) {
+                var v = BASES[n.charAt(0)];
+                if (n.indexOf('♯') !== -1) v++;
+                if (n.indexOf('♭') !== -1) v--;
+                return ((v % 12) + 12) % 12;
+            }
+
+            var absList = [], prev = -1, off = 0;
+            for (var i = 0; i < notes.length; i++) {
+                var sv = toSemi(notes[i]);
+                if (i > 0 && sv <= prev) off += 12;
+                absList.push(off + sv);
+                prev = sv;
+            }
+
+            var hlMap = {};
+            for (var i = 0; i < absList.length; i++) hlMap[absList[i]] = notes[i];
+
+            var KW = 24, KH = 78, BW = 14, BH = 48, X0 = 15, NW = 15;
+            var VW = 390;
+
+            function kp(x, y, w, h, r) {
+                return 'M'+x+' '+y+'L'+(x+w)+' '+y+'L'+(x+w)+' '+(y+h-r)+
+                    'Q'+(x+w)+' '+(y+h)+' '+(x+w-r)+' '+(y+h)+
+                    'L'+(x+r)+' '+(y+h)+'Q'+x+' '+(y+h)+' '+x+' '+(y+h-r)+'Z';
+            }
+
+            var p = '<svg class="piano-svg" viewBox="0 0 '+VW+' 82" xmlns="http://www.w3.org/2000/svg">';
+
+            for (var w = 0; w < NW; w++) {
+                var semi = Math.floor(w / 7) * 12 + WHITE_SEMIS[w % 7];
+                var x = X0 + w * KW;
+                var hit = hlMap.hasOwnProperty(semi);
+                p += '<path d="'+kp(x, 0, KW, KH, 3)+'" fill="'+(hit ? '#818cf8' : '#fff')+'" stroke="#a8a29e" stroke-width="1"/>';
+            }
+
+            for (var o = 0; o < 2; o++) {
+                for (var b = 0; b < BLACK_DEFS.length; b++) {
+                    var wi = o * 7 + BLACK_DEFS[b].after;
+                    if (wi + 1 >= NW) continue;
+                    var semi = o * 12 + BLACK_DEFS[b].semi;
+                    var x = X0 + (wi + 1) * KW - BW / 2;
+                    var hit = hlMap.hasOwnProperty(semi);
+                    p += '<path d="'+kp(x, 0, BW, BH, 2)+'" fill="'+(hit ? '#6366f1' : '#1c1917')+'" stroke="#0c0a09" stroke-width="0.5"/>';
+                }
+            }
+
+            for (var w = 0; w < NW; w++) {
+                var semi = Math.floor(w / 7) * 12 + WHITE_SEMIS[w % 7];
+                var x = X0 + w * KW;
+                var hit = hlMap.hasOwnProperty(semi);
+                var lbl = hit ? hlMap[semi] : WHITE_LETTERS[w % 7];
+                var clr = hit ? '#312e81' : '#c8c4bc';
+                var fw = hit ? '700' : '400';
+                p += '<text x="'+(x + KW/2)+'" y="'+(KH - 6)+'" font-size="9.5" fill="'+clr+'" text-anchor="middle" font-weight="'+fw+'" font-family="\'Segoe UI\',system-ui,sans-serif">'+lbl+'</text>';
+            }
+
+            for (var o = 0; o < 2; o++) {
+                for (var b = 0; b < BLACK_DEFS.length; b++) {
+                    var wi = o * 7 + BLACK_DEFS[b].after;
+                    if (wi + 1 >= NW) continue;
+                    var semi = o * 12 + BLACK_DEFS[b].semi;
+                    if (!hlMap.hasOwnProperty(semi)) continue;
+                    var x = X0 + (wi + 1) * KW - BW / 2;
+                    p += '<text x="'+(x + BW/2)+'" y="'+(BH - 5)+'" font-size="8" fill="#e0e7ff" text-anchor="middle" font-weight="600" font-family="\'Segoe UI\',system-ui,sans-serif">'+hlMap[semi]+'</text>';
+                }
+            }
+
+            p += '</svg>';
+            return p;
+        }
+
+        function selectKey(ring, pos) {
+            if (selectedRing === ring && selectedPos === pos) {
+                clearSelection();
+                return;
+            }
+            selectedRing = ring;
+            selectedPos  = pos;
+            activeChordIdx = null;
+            updateCircle();
+            updatePanel();
+        }
+
+        function clearSelection() {
+            selectedRing = null;
+            selectedPos  = null;
+            activeChordIdx = null;
+            highlightedChordMap = {};
+            updateCircle();
+            infoDetail.style.display = 'none';
+            infoDefault.style.display = 'block';
+        }
+
+        function updateCircle() {
+            while (romanGroup.firstChild) romanGroup.removeChild(romanGroup.firstChild);
+
+            var centerLine1 = document.getElementById('center-line1');
+            var centerLine2 = document.getElementById('center-line2');
+
+            if (selectedRing === null) {
+                for (var i = 0; i < 12; i++) {
+                    outerPaths[i].setAttribute('fill', DEFAULT_OUTER);
+                    outerPaths[i].setAttribute('stroke', '#fff');
+                    outerPaths[i].setAttribute('stroke-width', '2.5');
+                    innerPaths[i].setAttribute('fill', DEFAULT_INNER);
+                    innerPaths[i].setAttribute('stroke', '#fff');
+                    innerPaths[i].setAttribute('stroke-width', '2.5');
+                    outerTexts[i].setAttribute('fill', '#1c1917');
+                    innerTexts[i].setAttribute('fill', '#1c1917');
+                    outerSigTexts[i].setAttribute('fill', '#a8a29e');
+                    outerSigTexts[i].setAttribute('visibility', 'visible');
+                }
+                centerLine1.textContent = 'Click a key';
+                centerLine1.setAttribute('font-size', '14');
+                centerLine1.setAttribute('font-weight', '500');
+                centerLine1.setAttribute('fill', '#a8a29e');
+                centerLine1.setAttribute('y', '-10');
+                centerLine2.textContent = 'to explore';
+                centerLine2.style.display = '';
+                return;
+            }
+
+            for (var i = 0; i < 12; i++) {
+                outerPaths[i].setAttribute('fill', FADED_OUTER);
+                outerPaths[i].setAttribute('stroke', '#fff');
+                outerPaths[i].setAttribute('stroke-width', '2.5');
+                innerPaths[i].setAttribute('fill', FADED_INNER);
+                innerPaths[i].setAttribute('stroke', '#fff');
+                innerPaths[i].setAttribute('stroke-width', '2.5');
+                outerTexts[i].setAttribute('fill', '#c8c4bc');
+                innerTexts[i].setAttribute('fill', '#c8c4bc');
+                outerSigTexts[i].setAttribute('fill', '#ddd9d2');
+                outerSigTexts[i].setAttribute('visibility', 'visible');
+            }
+
+            var chords = getChords(selectedRing, selectedPos);
+            highlightedChordMap = {};
+            for (var c = 0; c < chords.length; c++) {
+                var ch = chords[c];
+                highlightedChordMap[ch.ring + '_' + ch.pos] = c;
+                var paths = ch.ring === 'major' ? outerPaths : innerPaths;
+                var texts = ch.ring === 'major' ? outerTexts : innerTexts;
+                paths[ch.pos].setAttribute('fill', ch.color);
+
+                var isTonic = (c === 0);
+                if (isTonic) {
+                    paths[ch.pos].setAttribute('stroke', '#1c1917');
+                    paths[ch.pos].setAttribute('stroke-width', '3');
+                }
+
+                texts[ch.pos].setAttribute('fill', '#fff');
+                if (ch.ring === 'major') outerSigTexts[ch.pos].setAttribute('visibility', 'hidden');
+
+                var tr = ch.ring === 'major' ? OUTER_TEXT_R : INNER_TEXT_R;
+                var tp = textPos(tr, ch.pos);
+                var yOffset = ch.ring === 'major' ? 17 : 14;
+                if (ch.pos === 6) yOffset += (ch.ring === 'major' ? 4 : 2);
+
+                var rl = svgEl('text', {
+                    x: tp.x, y: tp.y + yOffset,
+                    'text-anchor': 'middle', 'dominant-baseline': 'central',
+                    class: 'roman-label',
+                    'font-size': ch.ring === 'major' ? '11' : '10'
+                });
+                rl.textContent = ch.num;
+                romanGroup.appendChild(rl);
+            }
+
+            var displayName = keyDisplayName(selectedRing, selectedPos);
+            centerLine1.textContent = displayName;
+            centerLine1.setAttribute('font-size', '16');
+            centerLine1.setAttribute('font-weight', '700');
+            centerLine1.setAttribute('fill', CHORD_COLORS.tonic);
+            centerLine1.setAttribute('y', '0');
+            centerLine2.textContent = '';
+            centerLine2.style.display = 'none';
+        }
+
+        function updatePanel() {
+            infoDefault.style.display = 'none';
+            infoDetail.style.display  = 'block';
+
+            var chords = getChords(selectedRing, selectedPos);
+            var keyName = keyDisplayName(selectedRing, selectedPos);
+            var sigDesc = keySigDescription(selectedPos);
+
+            var relRing = selectedRing === 'major' ? 'minor' : 'major';
+            var relPos  = selectedPos;
+            var relName = relRing === 'major'
+                ? KEYS[relPos].major + ' Major'
+                : stripMinor(KEYS[relPos].minor) + ' Minor';
+
+            var parRing, parPos;
+            if (selectedRing === 'major') {
+                parRing = 'minor';
+                parPos  = mod(selectedPos + 9, 12);
+            } else {
+                parRing = 'major';
+                parPos  = mod(selectedPos + 3, 12);
+            }
+            var parName = parRing === 'major'
+                ? KEYS[parPos].major + ' Major'
+                : stripMinor(KEYS[parPos].minor) + ' Minor';
+
+            var html = '';
+            html += '<div class="detail-header">';
+            html += '<h2>' + esc(keyName) + '</h2>';
+            html += '<button id="clear-btn" onclick="return false;">Clear</button>';
+            html += '</div>';
+
+            html += '<div class="info-section">';
+            html += '<h3>Key Signature</h3>';
+            html += '<p>' + esc(sigDesc) + '</p>';
+            html += '</div>';
+
+            html += '<div class="info-section">';
+            html += '<h3>Scale Notes</h3>';
+            html += renderScaleSection(selectedRing, selectedPos);
+            html += '</div>';
+
+            html += '<div class="info-section">';
+            html += '<h3>Diatonic Chords</h3>';
+            html += '<table class="chord-table">';
+            html += '<tr><th>Numeral</th><th>Chord</th><th>Quality</th></tr>';
+            for (var i = 0; i < chords.length; i++) {
+                var ch = chords[i];
+                var cn = chordDisplayName(ch.ring, ch.pos, ch.quality);
+                html += '<tr data-chord-idx="' + i + '">';
+                html += '<td class="numeral-cell" style="color:' + ch.color + '">' + esc(ch.num) + '</td>';
+                html += '<td class="chord-name-cell">' + esc(cn) + '</td>';
+                html += '<td class="quality-cell">' + ch.quality + '</td>';
+                html += '</tr>';
+            }
+            html += '</table>';
+            html += '<div id="chord-tones" style="display:none"></div>';
+            html += '</div>';
+
+            html += '<div class="info-section">';
+            html += '<h3>Key Relationships</h3>';
+
+            html += '<div class="relationship-row">';
+            html += '<span class="rel-label">Relative ' + (relRing === 'major' ? 'Major' : 'Minor') + '</span>';
+            html += '<a class="rel-link" data-ring="' + relRing + '" data-pos="' + relPos + '">' + esc(relName) + '</a>';
+            html += '</div>';
+
+            html += '<div class="relationship-row">';
+            html += '<span class="rel-label">Parallel ' + (parRing === 'major' ? 'Major' : 'Minor') + '</span>';
+            html += '<a class="rel-link" data-ring="' + parRing + '" data-pos="' + parPos + '">' + esc(parName) + '</a>';
+            html += '</div>';
+
+            html += '</div>';
+
+            infoDetail.innerHTML = html;
+
+            document.getElementById('clear-btn').addEventListener('click', clearSelection);
+
+            var links = infoDetail.querySelectorAll('.rel-link');
+            for (var j = 0; j < links.length; j++) {
+                links[j].addEventListener('click', function(e) {
+                    e.preventDefault();
+                    var r = this.getAttribute('data-ring');
+                    var p = parseInt(this.getAttribute('data-pos'), 10);
+                    selectKey(r, p);
+                });
+            }
+
+            var chordRows = infoDetail.querySelectorAll('.chord-table tr[data-chord-idx]');
+            for (var k = 0; k < chordRows.length; k++) {
+                chordRows[k].addEventListener('click', function() {
+                    var idx = parseInt(this.getAttribute('data-chord-idx'), 10);
+                    if (activeChordIdx === idx) {
+                        activeChordIdx = null;
+                        this.classList.remove('active-chord');
+                        document.getElementById('chord-tones').style.display = 'none';
+                    } else {
+                        setActiveChord(idx);
+                    }
+                });
+            }
+
+            if (activeChordIdx !== null) {
+                setActiveChord(activeChordIdx);
+            }
+        }
+
+        function esc(s) {
+            var d = document.createElement('div');
+            d.appendChild(document.createTextNode(s));
+            return d.innerHTML;
+        }
+
+        buildCircle();
+    })();
+    </script>
+</body>
+</html>
