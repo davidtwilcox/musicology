@@ -2,9 +2,9 @@
 
 An interactive web application for exploring music theory concepts.
 
-## Circle of Fifths
+## Keys
 
-The first module is an interactive **Circle of Fifths** visualization. Click any major or minor key to see:
+An interactive **Circle of Fifths** visualization. Click any major or minor key to see:
 
 - **Diatonic chords** highlighted on the circle with Roman numeral labels (I, ii, iii, IV, V, vi, vii°)
 - **Scale notes** displayed as text, on a treble clef staff, and on a piano keyboard with highlighted keys
@@ -12,6 +12,18 @@ The first module is an interactive **Circle of Fifths** visualization. Click any
 - **Key signature** details (number and names of sharps or flats)
 - **Relative key** (shares the same key signature)
 - **Parallel key** (shares the same root note, opposite quality)
+
+## Scales
+
+A **Scale Explorer** for any combination of tonic and scale type. Select a tonic (all 12 chromatic tones) and a scale type to see:
+
+- **Scale notes** displayed as a text sequence
+- **Staff notation** on a treble clef staff
+- **Piano keyboard** with the scale notes highlighted
+
+Scale types available:
+- Major, Natural minor, Harmonic minor, Melodic minor
+- Modes: Ionian, Dorian, Phrygian, Lydian, Mixolydian, Aeolian, Locrian
 
 ## Usage
 
