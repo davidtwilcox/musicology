@@ -522,6 +522,48 @@
             return k.sigCount + ' flat' + (k.sigCount > 1 ? 's' : '') + ': ' + names2;
         }
 
+        function renderKeySigStaffSvg(pos) {
+            var k = KEYS[pos];
+            if (k.sigCount === 0) return '';
+
+            var SHARP_POS = [10, 7, 11, 8, 5, 9, 6];
+            var FLAT_POS  = [6, 9, 5, 8, 4, 7, 3];
+
+            function yOf(p) { return 80 - p * 5; }
+
+            var s = '<svg class="staff-svg" viewBox="0 0 390 108" xmlns="http://www.w3.org/2000/svg">';
+
+            for (var l = 2; l <= 10; l += 2) {
+                s += '<line x1="10" y1="' + yOf(l) + '" x2="380" y2="' + yOf(l) + '" stroke="#c8c4bc" stroke-width="1"/>';
+            }
+
+            s += '<text x="14" y="76" font-size="64" fill="#44403c" font-family="\'Noto Music\',\'Segoe UI Symbol\',serif" letter-spacing="0">&#x1D11E;</text>';
+
+            var isSharp = k.sigType === '♯';
+            var count = k.sigCount;
+            var positions = isSharp ? SHARP_POS : FLAT_POS;
+            var symbol = isSharp ? '♯' : '♭';
+            var startX = 72;
+            var spacing = 16;
+
+            if (k.sigType.indexOf('♯') !== -1 && k.sigType.indexOf('♭') !== -1) {
+                for (var i = 0; i < 6; i++) {
+                    var x = startX + i * spacing;
+                    var y = yOf(SHARP_POS[i]);
+                    s += '<text x="' + x + '" y="' + (y + 5) + '" font-size="16" fill="#44403c" text-anchor="middle" font-family="serif">♯</text>';
+                }
+            } else {
+                for (var i = 0; i < count; i++) {
+                    var x = startX + i * spacing;
+                    var y = yOf(positions[i]);
+                    s += '<text x="' + x + '" y="' + (y + 5) + '" font-size="16" fill="#44403c" text-anchor="middle" font-family="serif">' + symbol + '</text>';
+                }
+            }
+
+            s += '</svg>';
+            return s;
+        }
+
         function getScale(ring, pos) {
             var major = MAJOR_SCALES[pos];
             if (ring === 'major') return major.slice();
@@ -563,6 +605,8 @@
             var chord = chords[chordIdx];
             var name = chordDisplayName(chord.ring, chord.pos, chord.quality);
 
+            var chordNotes = tones.map(function(t) { return t.note; });
+
             var html = '<h4><span class="tone-color" style="background:' + chord.color + '"></span>' + esc(chord.num) + ' — ' + esc(name) + '</h4>';
             html += '<table class="tones-table">';
             html += '<tr><th>Note</th><th>Interval</th></tr>';
@@ -571,6 +615,8 @@
                 html += '<td class="interval-cell">' + esc(tones[i].interval) + '</td></tr>';
             }
             html += '</table>';
+            html += renderChordStaffSvg(chordNotes);
+            html += renderPianoSvg(chordNotes);
             container.innerHTML = html;
             container.style.display = '';
         }
@@ -609,6 +655,66 @@
 
             for (var i = 0; i < notes.length; i++) {
                 var pos = startPos + i;
+                var x = noteX0 + i * noteSpacing;
+                var y = yOf(pos);
+
+                if (pos <= 0) {
+                    for (var lp = 0; lp >= pos; lp -= 2) {
+                        s += '<line x1="' + (x - 12) + '" y1="' + yOf(lp) + '" x2="' + (x + 12) + '" y2="' + yOf(lp) + '" stroke="#a8a29e" stroke-width="1"/>';
+                    }
+                }
+                if (pos >= 12) {
+                    for (var lp = 12; lp <= pos; lp += 2) {
+                        s += '<line x1="' + (x - 12) + '" y1="' + yOf(lp) + '" x2="' + (x + 12) + '" y2="' + yOf(lp) + '" stroke="#a8a29e" stroke-width="1"/>';
+                    }
+                }
+
+                var acc = '';
+                if (notes[i].indexOf('♯') !== -1) acc = '♯';
+                else if (notes[i].indexOf('♭') !== -1) acc = '♭';
+
+                if (acc) {
+                    s += '<text x="' + (x - 11) + '" y="' + (y + 5) + '" font-size="14" fill="#44403c" text-anchor="end" font-family="serif">' + acc + '</text>';
+                }
+
+                s += '<ellipse cx="' + x + '" cy="' + y + '" rx="6" ry="4.5" fill="none" stroke="#1c1917" stroke-width="1.8" transform="rotate(-10,' + x + ',' + y + ')"/>';
+
+                s += '<text x="' + x + '" y="' + (yOf(-1) + 18) + '" font-size="10" fill="#78716c" text-anchor="middle" font-family="\'Segoe UI\',system-ui,sans-serif">' + notes[i] + '</text>';
+            }
+
+            s += '</svg>';
+            return s;
+        }
+
+        function renderChordStaffSvg(notes) {
+            var LETTER_POS = { C: 0, D: 1, E: 2, F: 3, G: 4, A: 5, B: 6 };
+            var ROOT_START = { C: 0, D: 1, E: 2, F: 3, G: 4, A: 5, B: -1 };
+
+            var rootLetter = notes[0].charAt(0);
+            var basePos = ROOT_START[rootLetter];
+            var positions = [];
+            for (var i = 0; i < notes.length; i++) {
+                var letter = notes[i].charAt(0);
+                var offset = LETTER_POS[letter] - LETTER_POS[rootLetter];
+                if (offset < 0) offset += 7;
+                positions.push(basePos + offset);
+            }
+
+            function yOf(p) { return 80 - p * 5; }
+
+            var s = '<svg class="staff-svg" viewBox="0 0 390 108" xmlns="http://www.w3.org/2000/svg">';
+
+            for (var l = 2; l <= 10; l += 2) {
+                s += '<line x1="10" y1="' + yOf(l) + '" x2="380" y2="' + yOf(l) + '" stroke="#c8c4bc" stroke-width="1"/>';
+            }
+
+            s += '<text x="14" y="76" font-size="64" fill="#44403c" font-family="\'Noto Music\',\'Segoe UI Symbol\',serif" letter-spacing="0">&#x1D11E;</text>';
+
+            var noteX0 = 120;
+            var noteSpacing = (notes.length > 1) ? (270 - noteX0) / (notes.length - 1) : 0;
+
+            for (var i = 0; i < notes.length; i++) {
+                var pos = positions[i];
                 var x = noteX0 + i * noteSpacing;
                 var y = yOf(pos);
 
@@ -866,6 +972,7 @@
             html += '<div class="info-section">';
             html += '<h3>Key Signature</h3>';
             html += '<p>' + esc(sigDesc) + '</p>';
+            html += renderKeySigStaffSvg(selectedPos);
             html += '</div>';
 
             html += '<div class="info-section">';
