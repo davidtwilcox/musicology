@@ -24,7 +24,7 @@ A **Scale Explorer** for any combination of tonic and scale type. Select a tonic
 Scale types available:
 - Major, Natural minor, Harmonic minor, Melodic minor
 - Modes: Ionian, Dorian, Phrygian, Lydian, Mixolydian, Aeolian, Locrian
-- Other: Phrygian dominant, Hungarian minor, Ukrainian Dorian
+- Other: Phrygian dominant, Hungarian minor, Ukrainian Dorian, Whole tone, Diminished
 
 ## Usage
 

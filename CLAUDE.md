@@ -25,10 +25,11 @@ Key design patterns in the JavaScript:
 
 ### Scales tab
 
-- **Data**: `CHROMATIC_TONES` (12 tones, C–B using sharps). `SCALE_TYPES` (14 types: 4 common scales + 7 modes + 3 other). `SCALE_INTERVALS` maps each type to its semitone interval pattern from the root. `ENHARMONIC_FLAT` remaps D♯/G♯/A♯ to E♭/A♭/B♭ when needed.
+- **Data**: `CHROMATIC_TONES` (12 tones, C–B using sharps). `SCALE_TYPES` (16 types: 4 common scales + 7 modes + 5 other). `SCALE_INTERVALS` maps each type to its semitone interval pattern from the root. `ENHARMONIC_FLAT` remaps D♯/G♯/A♯ to E♭/A♭/B♭ when needed. Non-heptatonic scales are supported: whole tone has 6 notes, diminished has 8.
 - **Scale computation**: `computeScale(tonic, intervals)` derives note names algorithmically — increments the diatonic letter per degree and adds ♯/♭ to match the target semitone. `hasDoubleAccidental(tonic, intervals)` detects when a tonic+scale combination would require double sharps. `computeScaleNotes(tonic, scaleType)` calls `hasDoubleAccidental` and automatically uses the enharmonic flat tonic when double sharps would occur.
 - **Selection state**: `selectedTonic` and `selectedScaleType` are independent. `updateScaleBlocks()` refreshes button highlights and, when both are set, calls `renderScaleResult()` to display the scale notes, staff SVG, and piano SVG in `#scale-result`.
 - **UI building**: `buildScalesTab()` creates `.scale-block` buttons for each tonic and scale type, inserting `.scales-type-separator` divs before Ionian (index 4, labeled "Modes") and before Phrygian dominant (index 11, labeled "Other").
+- **Staff rendering**: `renderStaffSvg` uses letter-based staff positioning (`LETTER_IDX` + octave tracking) rather than incrementing by 1 per note. This correctly handles non-heptatonic scales where the octave-return note would land on the wrong staff line with a naive `startPos + i` approach.
 
 ## Music Theory Conventions
 
