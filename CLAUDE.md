@@ -19,7 +19,7 @@ Key design patterns in the JavaScript:
 - **Chord computation**: `getChords(ring, pos)` derives all 7 diatonic chords for a key by computing circle-position offsets — no hardcoded chord tables. Major chords use positions `pos, pos±1, pos+2`; minor chords mirror this pattern.
 - **Scale & chord tones**: `getScale(ring, pos)` returns the 7-note scale (major or natural minor). `getChordTones(ring, pos, chordIdx)` uses `CHORD_DEGREES` to extract the triad notes and pairs them with `INTERVAL_NAMES` by quality.
 - **SVG rendering**: The circle uses `<path>` arcs from `arcPath()`. The staff (`renderStaffSvg`) and piano keyboard (`renderPianoSvg`) are generated as inline SVG strings inserted via `innerHTML`.
-- **Selection state**: `selectedRing` ('major'/'minor') and `selectedPos` (0–11) drive all visual updates. Clicking the same key toggles off. `highlightedChordMap` maps `ring_pos` keys to chord indices so circle hover can trigger chord tone display. `activeChordIdx` tracks which chord's tones are shown.
+- **Selection state**: `selectedRing` ('major'/'minor') and `selectedPos` (0–11) drive all visual updates. Clicking the same key toggles off. `activeChordIdx` tracks which chord's tones are shown (set by clicking a row in the diatonic chords table).
 
 ## Music Theory Conventions
 

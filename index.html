@@ -388,7 +388,6 @@
                 });
                 (function(idx) {
                     op.addEventListener('click', function() { selectKey('major', idx); });
-                    op.addEventListener('mouseenter', function() { handleSegmentHover('major', idx); });
                 })(i);
                 svg.appendChild(op);
                 outerPaths.push(op);
@@ -400,7 +399,6 @@
                 });
                 (function(idx) {
                     ip.addEventListener('click', function() { selectKey('minor', idx); });
-                    ip.addEventListener('mouseenter', function() { handleSegmentHover('minor', idx); });
                 })(i);
                 svg.appendChild(ip);
                 innerPaths.push(ip);
@@ -877,8 +875,9 @@
 
             html += '<div class="info-section">';
             html += '<h3>Diatonic Chords</h3>';
+            var DEGREE_NAMES = ['Tonic','Supertonic','Mediant','Subdominant','Dominant','Submediant', selectedRing === 'major' ? 'Leading tone' : 'Subtonic'];
             html += '<table class="chord-table">';
-            html += '<tr><th>Numeral</th><th>Chord</th><th>Quality</th></tr>';
+            html += '<tr><th>Numeral</th><th>Chord</th><th>Quality</th><th>Degree</th></tr>';
             for (var i = 0; i < chords.length; i++) {
                 var ch = chords[i];
                 var cn = chordDisplayName(ch.ring, ch.pos, ch.quality);
@@ -886,6 +885,7 @@
                 html += '<td class="numeral-cell" style="color:' + ch.color + '">' + esc(ch.num) + '</td>';
                 html += '<td class="chord-name-cell">' + esc(cn) + '</td>';
                 html += '<td class="quality-cell">' + ch.quality + '</td>';
+                html += '<td class="quality-cell">' + DEGREE_NAMES[i] + '</td>';
                 html += '</tr>';
             }
             html += '</table>';

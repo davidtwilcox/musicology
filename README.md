@@ -8,7 +8,7 @@ The first module is an interactive **Circle of Fifths** visualization. Click any
 
 - **Diatonic chords** highlighted on the circle with Roman numeral labels (I, ii, iii, IV, V, vi, vii°)
 - **Scale notes** displayed as text, on a treble clef staff, and on a piano keyboard with highlighted keys
-- **Chord tones** — hover a chord on the circle or click a row in the chord table to see the notes and intervals (root, third, fifth) that make up each chord
+- **Chord tones** — click a row in the chord table to see the notes and intervals (root, third, fifth) that make up each chord
 - **Key signature** details (number and names of sharps or flats)
 - **Relative key** (shares the same key signature)
 - **Parallel key** (shares the same root note, opposite quality)
