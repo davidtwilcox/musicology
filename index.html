@@ -211,8 +211,38 @@
         .staff-svg { width: 100%; height: auto; margin-top: 0.6rem; }
         .piano-svg { width: 100%; height: auto; margin-top: 0.6rem; }
 
+        .tab-bar {
+            display: flex;
+            gap: 0;
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 0 2rem;
+            border-bottom: 1px solid #e7e5e4;
+            background: #fff;
+        }
+        .tab-btn {
+            padding: 0.65rem 1.25rem;
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: #78716c;
+            background: none;
+            border: none;
+            border-bottom: 2px solid transparent;
+            cursor: pointer;
+            transition: color 0.15s, border-color 0.15s;
+            font-family: inherit;
+        }
+        .tab-btn:hover { color: #1c1917; }
+        .tab-btn.active {
+            color: #1c1917;
+            font-weight: 600;
+            border-bottom-color: #2563eb;
+        }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
         @media (max-width: 950px) {
-            main { flex-direction: column; align-items: center; }
+            .tab-content > main { flex-direction: column; align-items: center; }
             #circle-container { flex: none; max-width: 480px; width: 100%; }
             #info-panel { width: 100%; max-width: 480px; }
         }
@@ -223,20 +253,34 @@
         <h1>Musicology</h1>
         <p>Interactive Music Theory Explorer</p>
     </header>
-    <main>
-        <div id="circle-container">
-            <svg id="circle-svg" viewBox="-265 -265 530 530" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Interactive Circle of Fifths diagram"></svg>
-        </div>
-        <div id="info-panel">
-            <div id="info-default">
-                <h2>Circle of Fifths</h2>
-                <p>Click on any key in the circle to explore its diatonic chords and key relationships.</p>
-                <p>The <strong>outer ring</strong> shows major keys arranged by ascending fifths clockwise. The <strong>inner ring</strong> shows their relative minor keys.</p>
-                <p>Adjacent keys on the circle differ by one sharp or flat, making the circle a map of harmonic proximity.</p>
+    <nav class="tab-bar">
+        <button class="tab-btn active" data-tab="keys">Keys</button>
+        <button class="tab-btn" data-tab="chords">Chords</button>
+    </nav>
+    <div class="tab-content active" id="tab-keys">
+        <main>
+            <div id="circle-container">
+                <svg id="circle-svg" viewBox="-265 -265 530 530" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Interactive Circle of Fifths diagram"></svg>
             </div>
-            <div id="info-detail" style="display:none"></div>
-        </div>
-    </main>
+            <div id="info-panel">
+                <div id="info-default">
+                    <h2>Circle of Fifths</h2>
+                    <p>Click on any key in the circle to explore its diatonic chords and key relationships.</p>
+                    <p>The <strong>outer ring</strong> shows major keys arranged by ascending fifths clockwise. The <strong>inner ring</strong> shows their relative minor keys.</p>
+                    <p>Adjacent keys on the circle differ by one sharp or flat, making the circle a map of harmonic proximity.</p>
+                </div>
+                <div id="info-detail" style="display:none"></div>
+            </div>
+        </main>
+    </div>
+    <div class="tab-content" id="tab-chords">
+        <main>
+            <div id="chords-panel" style="max-width:600px;margin:0 auto">
+                <h2>Chords</h2>
+                <p style="color:#78716c">Chord explorer coming soon.</p>
+            </div>
+        </main>
+    </div>
 
     <script>
     (function() {
@@ -1054,6 +1098,18 @@
         }
 
         buildCircle();
+
+        var tabBtns = document.querySelectorAll('.tab-btn');
+        for (var t = 0; t < tabBtns.length; t++) {
+            tabBtns[t].addEventListener('click', function() {
+                var target = this.getAttribute('data-tab');
+                for (var j = 0; j < tabBtns.length; j++) tabBtns[j].classList.remove('active');
+                this.classList.add('active');
+                var panes = document.querySelectorAll('.tab-content');
+                for (var j = 0; j < panes.length; j++) panes[j].classList.remove('active');
+                document.getElementById('tab-' + target).classList.add('active');
+            });
+        }
     })();
     </script>
 </body>
