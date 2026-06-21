@@ -12,6 +12,10 @@ An interactive **Circle of Fifths** visualization. Click any major or minor key 
 - **Key signature** details (number and names of sharps or flats)
 - **Relative key** (shares the same key signature)
 - **Parallel key** (shares the same root note, opposite quality)
+- **Chord Borrowing** — explore chords borrowed from related keys and modes:
+  - **Parallel key** chords side-by-side with the current key
+  - **Modal interchange** chords from all seven modes (Ionian through Locrian)
+  - **Secondary dominants** (V/) for each diatonic degree
 
 ## Scales
 

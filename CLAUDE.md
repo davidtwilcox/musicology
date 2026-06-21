@@ -22,6 +22,11 @@ Key design patterns in the JavaScript:
 - **Scale & chord tones**: `getScale(ring, pos)` returns the 7-note scale (major or natural minor). `getChordTones(ring, pos, chordIdx)` uses `CHORD_DEGREES` to extract the triad notes and pairs them with `INTERVAL_NAMES` by quality.
 - **SVG rendering**: The circle uses `<path>` arcs from `arcPath()`. The staff (`renderStaffSvg`) and piano keyboard (`renderPianoSvg`) are generated as inline SVG strings inserted via `innerHTML`.
 - **Selection state**: `selectedRing` ('major'/'minor') and `selectedPos` (0–11) drive all visual updates. Clicking the same key toggles off. `activeChordIdx` tracks which chord's tones are shown (set by clicking a row in the diatonic chords table).
+- **Collapsible sections**: Each `.info-section` in the Keys tab info panel (Key Signature, Scale Notes, Key Relationships, Diatonic Chords, Chord Borrowing) is collapsible. The `h3` header contains a `.collapse-indicator` (▼) and toggles the `.collapsed` class on click. Content is wrapped in `.info-section-content > div` and animated via CSS `grid-template-rows`. The Scales tab result section also uses this pattern.
+- **Chord Borrowing section**: Contains three sub-sections — Parallel, Modal Interchange, and Secondary Dominants. Each uses a `.borrowing-table` (7-column layout matching diatonic degrees) with clickable chord cells. Chord selections across all sub-sections and the Diatonic Chords table are mutually exclusive, managed by `clearAllChordSelections()`.
+  - **Parallel**: Shows current key chords vs. parallel key chords. Uses `getChords(parRing, parPos)` and `showBorrowedChordTones()` for display.
+  - **Modal Interchange**: `getModalChords(tonic, modeName)` computes triads for each mode by building the scale via `computeScaleNotes`, then determining chord quality from semitone intervals (`noteToSemitone`). Shows 7 mode rows; the current mode (Ionian for major, Aeolian for minor) is labeled "Current" and moved to the top. `showModalChordTones()` displays tones in `#modal-chord-tones`.
+  - **Secondary Dominants**: `computeSecondaryDominant(targetRoot)` finds the perfect 5th above the target root (letter-based computation for correct spelling), builds a major triad via `computeScale` with `triadOffsets [0, 2, 4]`, and remaps enharmonically (B♯→C, E♯→F) when `hasDoubleAccidental` detects double sharps. Shows V/x for each diatonic degree. `showSecDomChordTones()` and `showSecDomCurrentTones()` display tones in `#secdom-chord-tones`.
 
 ### Scales tab
 
@@ -35,6 +40,7 @@ Key design patterns in the JavaScript:
 
 - Outer ring = major keys; inner ring = relative minor keys (same key signature).
 - Parallel key: same root, opposite quality. Offset: major→minor is `(pos+9)%12`, minor→major is `(pos+3)%12`.
+- Augmented chords use the root note + '+' suffix. `INTERVAL_NAMES` includes an 'Augmented' entry for Root / Major Third / Augmented Fifth.
 - Diminished chords (vii° in major, ii° in minor) use the minor key name with 'm' replaced by '°'.
 - Enharmonic keys at positions 5–7 (B/C♭, F♯/G♭, D♭/C♯) need special handling — see `stripMinor()` for slash-delimited names.
 - Staff rendering maps note letters to diatonic staff positions (C=0 through A=5, B=-1). Each scale step increments by one position; accidentals don't affect vertical placement.

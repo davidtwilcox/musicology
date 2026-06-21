@@ -105,6 +105,32 @@
             letter-spacing: 0.05em;
             color: #a8a29e;
             margin-bottom: 0.5rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+            user-select: none;
+        }
+        .info-section h3:hover { color: #78716c; }
+        .info-section h3 .collapse-indicator {
+            display: inline-block;
+            font-size: 0.55rem;
+            transition: transform 0.2s ease;
+        }
+        .info-section.collapsed h3 .collapse-indicator {
+            transform: rotate(-90deg);
+        }
+        .info-section .info-section-content {
+            overflow: hidden;
+            transition: grid-template-rows 0.2s ease;
+            display: grid;
+            grid-template-rows: 1fr;
+        }
+        .info-section.collapsed .info-section-content {
+            grid-template-rows: 0fr;
+        }
+        .info-section .info-section-content > div {
+            overflow: hidden;
         }
         .info-section p { font-size: 0.9rem; line-height: 1.5; }
 
@@ -198,6 +224,73 @@
         }
         .tones-table .note-cell { font-weight: 600; }
         .tones-table .interval-cell { color: #57534e; }
+
+        .borrowing-sub-label {
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #78716c;
+            margin-bottom: 0.4rem;
+        }
+        .borrowing-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.82rem;
+            table-layout: fixed;
+        }
+        .borrowing-table th {
+            font-size: 0.7rem;
+            font-weight: 700;
+            padding: 0.3rem 0.15rem;
+            text-align: center;
+            color: #78716c;
+            border-bottom: 1px solid #e7e5e4;
+        }
+        .borrowing-table tfoot th {
+            border-bottom: none;
+            border-top: 1px solid #e7e5e4;
+        }
+        .borrowing-table td {
+            text-align: center;
+            padding: 0.4rem 0.15rem;
+            font-weight: 500;
+            cursor: pointer;
+            border-top: 1px solid #f5f5f4;
+            transition: background 0.15s;
+            white-space: nowrap;
+        }
+        .borrowing-table td:hover { background: #fafaf9; }
+        .borrowing-table td.active-borrowed { background: #eff6ff; }
+        .borrowing-table .row-label {
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            color: #a8a29e;
+            font-weight: 500;
+            cursor: default;
+            text-align: left;
+            white-space: nowrap;
+        }
+        .borrowing-table .row-label:hover { background: transparent; }
+        .borrowed-chord-tones {
+            margin-top: 0.25rem;
+            padding: 0.85rem;
+            background: #f8fafc;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+        }
+        .borrowed-chord-tones h4 {
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+        .borrowed-chord-tones .tone-color {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 3px;
+            margin-right: 0.4rem;
+            vertical-align: middle;
+        }
 
         .scale-sequence {
             font-size: 1rem;
@@ -435,7 +528,8 @@
         var INTERVAL_NAMES = {
             'Major':      ['Root', 'Major Third', 'Perfect Fifth'],
             'Minor':      ['Root', 'Minor Third', 'Perfect Fifth'],
-            'Diminished': ['Root', 'Minor Third', 'Diminished Fifth']
+            'Diminished': ['Root', 'Minor Third', 'Diminished Fifth'],
+            'Augmented':  ['Root', 'Major Third', 'Augmented Fifth']
         };
 
         var CHROMATIC_TONES = ['C','C♯','D','D♯','E','F','F♯','G','G♯','A','A♯','B'];
@@ -782,6 +876,184 @@
             container.style.display = '';
         }
 
+        function showBorrowedChordTones(keyRing, keyPos, chordIdx) {
+            var container = document.getElementById('borrowed-chord-tones');
+            if (!container) return;
+
+            var tones = getChordTones(keyRing, keyPos, chordIdx);
+            var chords = getChords(keyRing, keyPos);
+            var chord = chords[chordIdx];
+            var name = chordDisplayName(chord.ring, chord.pos, chord.quality);
+
+            var chordNotes = tones.map(function(t) { return t.note; });
+
+            var html = '<h4><span class="tone-color" style="background:' + chord.color + '"></span>' + esc(chord.num) + ' — ' + esc(name) + '</h4>';
+            html += '<table class="tones-table">';
+            html += '<tr><th>Note</th><th>Interval</th></tr>';
+            for (var i = 0; i < tones.length; i++) {
+                html += '<tr><td class="note-cell">' + esc(tones[i].note) + '</td>';
+                html += '<td class="interval-cell">' + esc(tones[i].interval) + '</td></tr>';
+            }
+            html += '</table>';
+            html += renderChordStaffSvg(chordNotes);
+            html += renderPianoSvg(chordNotes);
+            container.innerHTML = html;
+            container.style.display = '';
+        }
+
+        var NOTE_SEMITONES = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+        function noteToSemitone(n) {
+            var v = NOTE_SEMITONES[n.charAt(0)];
+            if (n.indexOf('♯') !== -1) v++;
+            if (n.indexOf('♭') !== -1) v--;
+            return ((v % 12) + 12) % 12;
+        }
+
+        var MODE_NAMES = ['Ionian','Dorian','Phrygian','Lydian','Mixolydian','Aeolian','Locrian'];
+        var ROMAN_UPPER = ['I','II','III','IV','V','VI','VII'];
+        var ROMAN_LOWER = ['i','ii','iii','iv','v','vi','vii'];
+
+        function getModalChords(tonic, modeName) {
+            var notes = computeScaleNotes(tonic, modeName);
+            var chords = [];
+            for (var i = 0; i < 7; i++) {
+                var root = notes[i];
+                var third = notes[(i + 2) % 7];
+                var fifth = notes[(i + 4) % 7];
+                var i3 = (noteToSemitone(third) - noteToSemitone(root) + 12) % 12;
+                var i5 = (noteToSemitone(fifth) - noteToSemitone(root) + 12) % 12;
+                var quality, numeral;
+                if (i3 === 4 && i5 === 8) {
+                    quality = 'Augmented';
+                    numeral = ROMAN_UPPER[i] + '+';
+                } else if (i3 === 4 && i5 === 7) {
+                    quality = 'Major';
+                    numeral = ROMAN_UPPER[i];
+                } else if (i3 === 3 && i5 === 7) {
+                    quality = 'Minor';
+                    numeral = ROMAN_LOWER[i];
+                } else if (i3 === 3 && i5 === 6) {
+                    quality = 'Diminished';
+                    numeral = ROMAN_LOWER[i] + '°';
+                } else {
+                    quality = 'Major';
+                    numeral = ROMAN_UPPER[i];
+                }
+                var name = root;
+                if (quality === 'Minor') name += 'm';
+                else if (quality === 'Diminished') name += '°';
+                else if (quality === 'Augmented') name += '+';
+                chords.push({
+                    num: numeral,
+                    quality: quality,
+                    name: name,
+                    tones: [
+                        { note: root, interval: INTERVAL_NAMES[quality] ? INTERVAL_NAMES[quality][0] : 'Root' },
+                        { note: third, interval: INTERVAL_NAMES[quality] ? INTERVAL_NAMES[quality][1] : 'Third' },
+                        { note: fifth, interval: INTERVAL_NAMES[quality] ? INTERVAL_NAMES[quality][2] : 'Fifth' }
+                    ],
+                    color: [CHORD_COLORS.tonic, CHORD_COLORS.supertonic, CHORD_COLORS.mediant,
+                            CHORD_COLORS.subdominant, CHORD_COLORS.dominant, CHORD_COLORS.submediant,
+                            CHORD_COLORS.leadingTone][i]
+                });
+            }
+            return chords;
+        }
+
+        function showModalChordTones(tonic, modeName, chordIdx) {
+            var container = document.getElementById('modal-chord-tones');
+            if (!container) return;
+            var chords = getModalChords(tonic, modeName);
+            var chord = chords[chordIdx];
+            var chordNotes = chord.tones.map(function(t) { return t.note; });
+
+            var html = '<h4><span class="tone-color" style="background:' + chord.color + '"></span>' + esc(chord.num) + ' — ' + esc(chord.name) + '</h4>';
+            html += '<table class="tones-table">';
+            html += '<tr><th>Note</th><th>Interval</th></tr>';
+            for (var i = 0; i < chord.tones.length; i++) {
+                html += '<tr><td class="note-cell">' + esc(chord.tones[i].note) + '</td>';
+                html += '<td class="interval-cell">' + esc(chord.tones[i].interval) + '</td></tr>';
+            }
+            html += '</table>';
+            html += renderChordStaffSvg(chordNotes);
+            html += renderPianoSvg(chordNotes);
+            container.innerHTML = html;
+            container.style.display = '';
+        }
+
+        function computeSecondaryDominant(targetRoot) {
+            var LNAMES = ['C','D','E','F','G','A','B'];
+            var LSEMIS = [0, 2, 4, 5, 7, 9, 11];
+            var rootLetterIdx = LNAMES.indexOf(targetRoot.charAt(0));
+            var rootSemi = noteToSemitone(targetRoot);
+            var domLetterIdx = (rootLetterIdx + 4) % 7;
+            var domTargetSemi = (rootSemi + 7) % 12;
+            var diff = domTargetSemi - LSEMIS[domLetterIdx];
+            if (diff > 6) diff -= 12;
+            if (diff < -6) diff += 12;
+            var domAcc = diff === 1 ? '♯' : diff === -1 ? '♭' : '';
+            var domRoot = LNAMES[domLetterIdx] + domAcc;
+            var triadIntervals = [0, 4, 7];
+            var triadOffsets = [0, 2, 4];
+            if (hasDoubleAccidental(domRoot, triadIntervals, triadOffsets)) {
+                var ENHAR = { 'B♯': 'C', 'E♯': 'F', 'C♭': 'B', 'F♭': 'E' };
+                if (ENHAR[domRoot]) domRoot = ENHAR[domRoot];
+            }
+            var notes = computeScale(domRoot, triadIntervals, triadOffsets);
+            return {
+                name: notes[0],
+                tones: [
+                    { note: notes[0], interval: 'Root' },
+                    { note: notes[1], interval: 'Major Third' },
+                    { note: notes[2], interval: 'Perfect Fifth' }
+                ]
+            };
+        }
+
+        function showSecDomChordTones(targetRoot, degreeIdx, numeral) {
+            var container = document.getElementById('secdom-chord-tones');
+            if (!container) return;
+            var secDom = computeSecondaryDominant(targetRoot);
+            var colors = [CHORD_COLORS.tonic, CHORD_COLORS.supertonic, CHORD_COLORS.mediant,
+                          CHORD_COLORS.subdominant, CHORD_COLORS.dominant, CHORD_COLORS.submediant,
+                          CHORD_COLORS.leadingTone];
+            var chordNotes = secDom.tones.map(function(t) { return t.note; });
+            var html = '<h4><span class="tone-color" style="background:' + colors[degreeIdx] + '"></span>' + esc(numeral) + ' — ' + esc(secDom.name) + '</h4>';
+            html += '<table class="tones-table">';
+            html += '<tr><th>Note</th><th>Interval</th></tr>';
+            for (var i = 0; i < secDom.tones.length; i++) {
+                html += '<tr><td class="note-cell">' + esc(secDom.tones[i].note) + '</td>';
+                html += '<td class="interval-cell">' + esc(secDom.tones[i].interval) + '</td></tr>';
+            }
+            html += '</table>';
+            html += renderChordStaffSvg(chordNotes);
+            html += renderPianoSvg(chordNotes);
+            container.innerHTML = html;
+            container.style.display = '';
+        }
+
+        function showSecDomCurrentTones(degreeIdx) {
+            var container = document.getElementById('secdom-chord-tones');
+            if (!container || selectedRing === null) return;
+            var tones = getChordTones(selectedRing, selectedPos, degreeIdx);
+            var chords = getChords(selectedRing, selectedPos);
+            var chord = chords[degreeIdx];
+            var name = chordDisplayName(chord.ring, chord.pos, chord.quality);
+            var chordNotes = tones.map(function(t) { return t.note; });
+            var html = '<h4><span class="tone-color" style="background:' + chord.color + '"></span>' + esc(chord.num) + ' — ' + esc(name) + '</h4>';
+            html += '<table class="tones-table">';
+            html += '<tr><th>Note</th><th>Interval</th></tr>';
+            for (var i = 0; i < tones.length; i++) {
+                html += '<tr><td class="note-cell">' + esc(tones[i].note) + '</td>';
+                html += '<td class="interval-cell">' + esc(tones[i].interval) + '</td></tr>';
+            }
+            html += '</table>';
+            html += renderChordStaffSvg(chordNotes);
+            html += renderPianoSvg(chordNotes);
+            container.innerHTML = html;
+            container.style.display = '';
+        }
+
         function renderScaleSection(ring, pos) {
             var scale = getScale(ring, pos);
             var notes8 = scale.concat([scale[0]]);
@@ -1052,7 +1324,8 @@
             var notes8 = notes.concat([notes[0]]);
             var html = '<h2>' + esc(tonic + ' ' + scaleType) + '</h2>';
             html += '<div class="info-section" style="margin-top:1rem">';
-            html += '<h3>Scale Notes</h3>';
+            html += '<h3><span class="collapse-indicator">▼</span>Scale Notes</h3>';
+            html += '<div class="info-section-content"><div>';
             html += '<p class="scale-sequence">';
             for (var i = 0; i < notes8.length; i++) {
                 if (i > 0) html += '<span class="sep"> – </span>';
@@ -1061,7 +1334,7 @@
             html += '</p>';
             html += renderStaffSvg(notes8);
             html += renderPianoSvg(notes8);
-            html += '</div>';
+            html += '</div></div></div>';
             return html;
         }
 
@@ -1121,6 +1394,12 @@
             if (selectedTonic !== null && selectedScaleType !== null) {
                 result.innerHTML = renderScaleResult(selectedTonic, selectedScaleType);
                 result.style.display = '';
+                var scaleHeaders = result.querySelectorAll('.info-section h3');
+                for (var j = 0; j < scaleHeaders.length; j++) {
+                    scaleHeaders[j].addEventListener('click', function() {
+                        this.parentElement.classList.toggle('collapsed');
+                    });
+                }
             } else {
                 result.style.display = 'none';
             }
@@ -1266,18 +1545,37 @@
             html += '</div>';
 
             html += '<div class="info-section">';
-            html += '<h3>Key Signature</h3>';
+            html += '<h3><span class="collapse-indicator">▼</span>Key Signature</h3>';
+            html += '<div class="info-section-content"><div>';
             html += '<p>' + esc(sigDesc) + '</p>';
             html += renderKeySigStaffSvg(selectedPos);
-            html += '</div>';
+            html += '</div></div></div>';
 
             html += '<div class="info-section">';
-            html += '<h3>Scale Notes</h3>';
+            html += '<h3><span class="collapse-indicator">▼</span>Scale Notes</h3>';
+            html += '<div class="info-section-content"><div>';
             html += renderScaleSection(selectedRing, selectedPos);
-            html += '</div>';
+            html += '</div></div></div>';
 
             html += '<div class="info-section">';
-            html += '<h3>Diatonic Chords</h3>';
+            html += '<h3><span class="collapse-indicator">▼</span>Key Relationships</h3>';
+            html += '<div class="info-section-content"><div>';
+
+            html += '<div class="relationship-row">';
+            html += '<span class="rel-label">Relative ' + (relRing === 'major' ? 'Major' : 'Minor') + '</span>';
+            html += '<a class="rel-link" data-ring="' + relRing + '" data-pos="' + relPos + '">' + esc(relName) + '</a>';
+            html += '</div>';
+
+            html += '<div class="relationship-row">';
+            html += '<span class="rel-label">Parallel ' + (parRing === 'major' ? 'Major' : 'Minor') + '</span>';
+            html += '<a class="rel-link" data-ring="' + parRing + '" data-pos="' + parPos + '">' + esc(parName) + '</a>';
+            html += '</div>';
+
+            html += '</div></div></div>';
+
+            html += '<div class="info-section">';
+            html += '<h3><span class="collapse-indicator">▼</span>Diatonic Chords</h3>';
+            html += '<div class="info-section-content"><div>';
             var DEGREE_NAMES = ['Tonic','Supertonic','Mediant','Subdominant','Dominant','Submediant', selectedRing === 'major' ? 'Leading tone' : 'Subtonic'];
             html += '<table class="chord-table">';
             html += '<tr><th>Numeral</th><th>Chord</th><th>Quality</th><th>Degree</th></tr>';
@@ -1293,26 +1591,116 @@
             }
             html += '</table>';
             html += '<div id="chord-tones" style="display:none"></div>';
-            html += '</div>';
+            html += '</div></div></div>';
 
+            var parChords = getChords(parRing, parPos);
             html += '<div class="info-section">';
-            html += '<h3>Key Relationships</h3>';
+            html += '<h3><span class="collapse-indicator">▼</span>Chord Borrowing</h3>';
+            html += '<div class="info-section-content"><div>';
+            html += '<p class="borrowing-sub-label">Parallel ' + (parRing === 'major' ? 'Major' : 'Minor') + '</p>';
+            html += '<table class="borrowing-table">';
+            html += '<tr>';
+            html += '<th></th>';
+            for (var bi = 0; bi < chords.length; bi++) {
+                html += '<th>' + esc(chords[bi].num) + '</th>';
+            }
+            html += '</tr>';
+            html += '<tr>';
+            html += '<td class="row-label">Current</td>';
+            for (var bi = 0; bi < chords.length; bi++) {
+                var bcn = chordDisplayName(chords[bi].ring, chords[bi].pos, chords[bi].quality);
+                html += '<td data-borrow-ring="' + selectedRing + '" data-borrow-pos="' + selectedPos + '" data-borrow-idx="' + bi + '">' + esc(bcn) + '</td>';
+            }
+            html += '</tr>';
+            html += '<tr>';
+            html += '<td class="row-label">Parallel</td>';
+            for (var bi = 0; bi < parChords.length; bi++) {
+                var bpcn = chordDisplayName(parChords[bi].ring, parChords[bi].pos, parChords[bi].quality);
+                html += '<td data-borrow-ring="' + parRing + '" data-borrow-pos="' + parPos + '" data-borrow-idx="' + bi + '">' + esc(bpcn) + '</td>';
+            }
+            html += '</tr>';
+            html += '<tfoot><tr>';
+            html += '<th></th>';
+            for (var bi = 0; bi < parChords.length; bi++) {
+                html += '<th>' + esc(parChords[bi].num) + '</th>';
+            }
+            html += '</tr></tfoot>';
+            html += '</table>';
+            html += '<div id="borrowed-chord-tones" class="borrowed-chord-tones" style="display:none"></div>';
 
-            html += '<div class="relationship-row">';
-            html += '<span class="rel-label">Relative ' + (relRing === 'major' ? 'Major' : 'Minor') + '</span>';
-            html += '<a class="rel-link" data-ring="' + relRing + '" data-pos="' + relPos + '">' + esc(relName) + '</a>';
-            html += '</div>';
+            var tonic = selectedRing === 'major'
+                ? KEYS[selectedPos].major
+                : stripMinor(KEYS[selectedPos].minor);
+            if (tonic.indexOf('/') !== -1) tonic = tonic.split('/')[0];
 
-            html += '<div class="relationship-row">';
-            html += '<span class="rel-label">Parallel ' + (parRing === 'major' ? 'Major' : 'Minor') + '</span>';
-            html += '<a class="rel-link" data-ring="' + parRing + '" data-pos="' + parPos + '">' + esc(parName) + '</a>';
-            html += '</div>';
+            html += '<p class="borrowing-sub-label" style="margin-top:1rem">Modal Interchange</p>';
+            html += '<table class="borrowing-table">';
+            html += '<tr>';
+            html += '<th></th>';
+            for (var bi = 0; bi < chords.length; bi++) {
+                html += '<th>' + esc(chords[bi].num) + '</th>';
+            }
+            html += '</tr>';
 
-            html += '</div>';
+            var modeOrder = MODE_NAMES.slice();
+            if (selectedRing === 'minor') {
+                modeOrder.splice(5, 1);
+                modeOrder.unshift('Aeolian');
+            }
+            for (var mi = 0; mi < modeOrder.length; mi++) {
+                var mode = modeOrder[mi];
+                var modeChords = getModalChords(tonic, mode);
+                var isCurrent = (selectedRing === 'major' && mode === 'Ionian') ||
+                                (selectedRing === 'minor' && mode === 'Aeolian');
+                var rowLabel = isCurrent ? 'Current' : mode;
+                html += '<tr>';
+                html += '<td class="row-label">' + esc(rowLabel) + '</td>';
+                for (var ci = 0; ci < modeChords.length; ci++) {
+                    html += '<td data-modal-tonic="' + esc(tonic) + '" data-modal-mode="' + esc(mode) + '" data-modal-idx="' + ci + '">' + esc(modeChords[ci].name) + '</td>';
+                }
+                html += '</tr>';
+            }
+            html += '</table>';
+            html += '<div id="modal-chord-tones" class="borrowed-chord-tones" style="display:none"></div>';
+
+            var scale = getScale(selectedRing, selectedPos);
+            html += '<p class="borrowing-sub-label" style="margin-top:1rem">Secondary Dominants</p>';
+            html += '<table class="borrowing-table">';
+            html += '<tr>';
+            html += '<th></th>';
+            for (var bi = 0; bi < chords.length; bi++) {
+                html += '<th>' + esc(chords[bi].num) + '</th>';
+            }
+            html += '</tr>';
+            html += '<tr>';
+            html += '<td class="row-label">Current</td>';
+            for (var bi = 0; bi < chords.length; bi++) {
+                var scn = chordDisplayName(chords[bi].ring, chords[bi].pos, chords[bi].quality);
+                html += '<td data-secdom-type="current" data-secdom-idx="' + bi + '">' + esc(scn) + '</td>';
+            }
+            html += '</tr>';
+            html += '<tr>';
+            html += '<td class="row-label">V /</td>';
+            for (var bi = 0; bi < chords.length; bi++) {
+                var secDom = computeSecondaryDominant(scale[bi]);
+                html += '<td data-secdom-type="dominant" data-secdom-idx="' + bi + '" data-secdom-root="' + esc(scale[bi]) + '" data-secdom-num="V/' + esc(chords[bi].num) + '">' + esc(secDom.name) + '</td>';
+            }
+            html += '</tr>';
+            html += '</table>';
+            html += '<div id="secdom-chord-tones" class="borrowed-chord-tones" style="display:none"></div>';
+
+            html += '</div></div></div>';
 
             infoDetail.innerHTML = html;
 
             document.getElementById('clear-btn').addEventListener('click', clearSelection);
+
+            var sectionHeaders = infoDetail.querySelectorAll('.info-section h3');
+            for (var s = 0; s < sectionHeaders.length; s++) {
+                sectionHeaders[s].addEventListener('click', function() {
+                    this.parentElement.classList.toggle('collapsed');
+                });
+            }
 
             var links = infoDetail.querySelectorAll('.rel-link');
             for (var j = 0; j < links.length; j++) {
@@ -1324,15 +1712,25 @@
                 });
             }
 
+            function clearAllChordSelections() {
+                activeChordIdx = null;
+                var dRows = infoDetail.querySelectorAll('.chord-table tr[data-chord-idx]');
+                for (var x = 0; x < dRows.length; x++) dRows[x].classList.remove('active-chord');
+                document.getElementById('chord-tones').style.display = 'none';
+                var allBorrow = infoDetail.querySelectorAll('.borrowing-table td.active-borrowed');
+                for (var x = 0; x < allBorrow.length; x++) allBorrow[x].classList.remove('active-borrowed');
+                document.getElementById('borrowed-chord-tones').style.display = 'none';
+                document.getElementById('modal-chord-tones').style.display = 'none';
+                document.getElementById('secdom-chord-tones').style.display = 'none';
+            }
+
             var chordRows = infoDetail.querySelectorAll('.chord-table tr[data-chord-idx]');
             for (var k = 0; k < chordRows.length; k++) {
                 chordRows[k].addEventListener('click', function() {
                     var idx = parseInt(this.getAttribute('data-chord-idx'), 10);
-                    if (activeChordIdx === idx) {
-                        activeChordIdx = null;
-                        this.classList.remove('active-chord');
-                        document.getElementById('chord-tones').style.display = 'none';
-                    } else {
+                    var wasActive = activeChordIdx === idx;
+                    clearAllChordSelections();
+                    if (!wasActive) {
                         setActiveChord(idx);
                     }
                 });
@@ -1340,6 +1738,60 @@
 
             if (activeChordIdx !== null) {
                 setActiveChord(activeChordIdx);
+            }
+
+            var borrowCells = infoDetail.querySelectorAll('.borrowing-table td[data-borrow-idx]');
+            for (var bc = 0; bc < borrowCells.length; bc++) {
+                borrowCells[bc].addEventListener('click', function() {
+                    var isActive = this.classList.contains('active-borrowed');
+                    clearAllChordSelections();
+                    if (!isActive) {
+                        this.classList.add('active-borrowed');
+                        showBorrowedChordTones(
+                            this.getAttribute('data-borrow-ring'),
+                            parseInt(this.getAttribute('data-borrow-pos'), 10),
+                            parseInt(this.getAttribute('data-borrow-idx'), 10)
+                        );
+                    }
+                });
+            }
+
+            var modalCells = infoDetail.querySelectorAll('.borrowing-table td[data-modal-idx]');
+            for (var mc = 0; mc < modalCells.length; mc++) {
+                modalCells[mc].addEventListener('click', function() {
+                    var isActive = this.classList.contains('active-borrowed');
+                    clearAllChordSelections();
+                    if (!isActive) {
+                        this.classList.add('active-borrowed');
+                        showModalChordTones(
+                            this.getAttribute('data-modal-tonic'),
+                            this.getAttribute('data-modal-mode'),
+                            parseInt(this.getAttribute('data-modal-idx'), 10)
+                        );
+                    }
+                });
+            }
+
+            var secdomCells = infoDetail.querySelectorAll('.borrowing-table td[data-secdom-idx]');
+            for (var sc = 0; sc < secdomCells.length; sc++) {
+                secdomCells[sc].addEventListener('click', function() {
+                    var isActive = this.classList.contains('active-borrowed');
+                    clearAllChordSelections();
+                    if (!isActive) {
+                        this.classList.add('active-borrowed');
+                        var type = this.getAttribute('data-secdom-type');
+                        var idx = parseInt(this.getAttribute('data-secdom-idx'), 10);
+                        if (type === 'current') {
+                            showSecDomCurrentTones(idx);
+                        } else {
+                            showSecDomChordTones(
+                                this.getAttribute('data-secdom-root'),
+                                idx,
+                                this.getAttribute('data-secdom-num')
+                            );
+                        }
+                    }
+                });
             }
         }
 
