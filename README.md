@@ -15,7 +15,7 @@ An interactive **Circle of Fifths** visualization. Click any major or minor key 
 - **Chord Borrowing** — explore chords borrowed from related keys and modes:
   - **Parallel key** chords side-by-side with the current key
   - **Modal interchange** chords from all seven modes (Ionian through Locrian)
-  - **Secondary dominants** — for each diatonic degree: the secondary dominant (V7/) and its tritone substitution (♭II7/)
+  - **Secondary Dominants & Tritone Substitution** — for each diatonic degree: the diatonic chord, its secondary dominant (V7/), and the tritone substitution (♭II7/)
 
 ## Scales
 

@@ -1564,7 +1564,7 @@
             html += '</table>';
 
             var scale = getScale(selectedRing, selectedPos);
-            html += '<p class="borrowing-sub-label" style="margin-top:1rem">Secondary Dominants</p>';
+            html += '<p class="borrowing-sub-label" style="margin-top:1rem">Secondary Dominants &amp; Tritone Substitution</p>';
             html += '<table class="borrowing-table">';
             html += '<tr>';
             html += '<th></th>';
@@ -1580,10 +1580,10 @@
             }
             html += '</tr>';
             html += '<tr>';
-            html += '<td class="row-label">V /</td>';
+            html += '<td class="row-label">V7 /</td>';
             for (var bi = 0; bi < chords.length; bi++) {
                 var secDom = computeSecondaryDominant(scale[bi]);
-                html += '<td data-secdom-type="dominant" data-secdom-idx="' + bi + '" data-secdom-root="' + esc(scale[bi]) + '" data-secdom-num="V/' + esc(chords[bi].num) + '">' + esc(secDom.name) + '</td>';
+                html += '<td data-secdom-type="dominant" data-secdom-idx="' + bi + '" data-secdom-root="' + esc(scale[bi]) + '" data-secdom-num="V7/' + esc(chords[bi].num) + '">' + esc(secDom.name) + '</td>';
             }
             html += '</tr>';
             html += '<tr>';
