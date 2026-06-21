@@ -184,19 +184,32 @@
         .chord-table tr[data-chord-idx]:hover td { background: #fafaf9; }
         .chord-table tr.active-chord td { background: #eff6ff; }
 
-        #chord-tones {
-            margin-top: 0.25rem;
-            padding: 0.85rem;
-            background: #f8fafc;
-            border-radius: 8px;
-            border: 1px solid #e2e8f0;
+        #chord-info-panel {
+            flex: 1;
+            min-width: 260px;
+            background: #fff;
+            border-radius: 12px;
+            padding: 1.75rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
+            position: sticky;
+            top: 2rem;
+            align-self: flex-start;
+            max-height: calc(100vh - 4rem);
+            overflow-y: auto;
         }
-        #chord-tones h4 {
+        #chord-info-panel h3 {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #a8a29e;
+            margin-bottom: 0.75rem;
+        }
+        #chord-info-panel h4 {
             font-size: 0.85rem;
             font-weight: 600;
             margin-bottom: 0.5rem;
         }
-        #chord-tones .tone-color {
+        #chord-info-panel .tone-color {
             display: inline-block;
             width: 10px;
             height: 10px;
@@ -271,26 +284,6 @@
             white-space: nowrap;
         }
         .borrowing-table .row-label:hover { background: transparent; }
-        .borrowed-chord-tones {
-            margin-top: 0.25rem;
-            padding: 0.85rem;
-            background: #f8fafc;
-            border-radius: 8px;
-            border: 1px solid #e2e8f0;
-        }
-        .borrowed-chord-tones h4 {
-            font-size: 0.85rem;
-            font-weight: 600;
-            margin-bottom: 0.5rem;
-        }
-        .borrowed-chord-tones .tone-color {
-            display: inline-block;
-            width: 10px;
-            height: 10px;
-            border-radius: 3px;
-            margin-right: 0.4rem;
-            vertical-align: middle;
-        }
 
         .scale-sequence {
             font-size: 1rem;
@@ -401,6 +394,7 @@
             .tab-content > main { flex-direction: column; align-items: center; }
             #circle-container { flex: none; max-width: 480px; width: 100%; }
             #info-panel { width: 100%; max-width: 480px; }
+            #chord-info-panel { flex: none; width: 100%; max-width: 480px; position: static; }
             .scales-layout { flex-direction: column; }
             #scale-result { width: 100%; }
         }
@@ -430,6 +424,7 @@
                 </div>
                 <div id="info-detail" style="display:none"></div>
             </div>
+            <div id="chord-info-panel" style="display:none"></div>
         </main>
     </div>
     <div class="tab-content" id="tab-scales">
@@ -850,9 +845,11 @@
             showChordTones(idx);
         }
 
-        function renderChordToneDisplay(container, title, tones, color) {
+        function renderChordToneDisplay(title, tones, color) {
+            var panel = document.getElementById('chord-info-panel');
             var chordNotes = tones.map(function(t) { return t.note; });
-            var html = '<h4><span class="tone-color" style="background:' + color + '"></span>' + esc(title) + '</h4>';
+            var html = '<h3>Chord Information</h3>';
+            html += '<h4><span class="tone-color" style="background:' + color + '"></span>' + esc(title) + '</h4>';
             html += '<table class="tones-table">';
             html += '<tr><th>Note</th><th>Interval</th></tr>';
             for (var i = 0; i < tones.length; i++) {
@@ -862,28 +859,26 @@
             html += '</table>';
             html += renderStaffSvg(chordNotes, true);
             html += renderPianoSvg(chordNotes);
-            container.innerHTML = html;
-            container.style.display = '';
+            panel.innerHTML = html;
+            panel.style.display = '';
+            document.querySelector('#tab-keys main').style.maxWidth = '1700px';
         }
 
         function showChordTones(chordIdx) {
-            var container = document.getElementById('chord-tones');
-            if (!container || selectedRing === null) return;
+            if (selectedRing === null) return;
             var tones = getChordTones(selectedRing, selectedPos, chordIdx);
             var chords = getChords(selectedRing, selectedPos);
             var chord = chords[chordIdx];
             var name = chordDisplayName(chord.ring, chord.pos, chord.quality);
-            renderChordToneDisplay(container, chord.num + ' — ' + name, tones, chord.color);
+            renderChordToneDisplay(chord.num + ' — ' + name, tones, chord.color);
         }
 
         function showBorrowedChordTones(keyRing, keyPos, chordIdx) {
-            var container = document.getElementById('borrowed-chord-tones');
-            if (!container) return;
             var tones = getChordTones(keyRing, keyPos, chordIdx);
             var chords = getChords(keyRing, keyPos);
             var chord = chords[chordIdx];
             var name = chordDisplayName(chord.ring, chord.pos, chord.quality);
-            renderChordToneDisplay(container, chord.num + ' — ' + name, tones, chord.color);
+            renderChordToneDisplay(chord.num + ' — ' + name, tones, chord.color);
         }
 
         var NOTE_SEMITONES = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
@@ -943,10 +938,8 @@
         }
 
         function showModalChordTones(tonic, modeName, chordIdx) {
-            var container = document.getElementById('modal-chord-tones');
-            if (!container) return;
             var chord = getModalChords(tonic, modeName)[chordIdx];
-            renderChordToneDisplay(container, chord.num + ' — ' + chord.name, chord.tones, chord.color);
+            renderChordToneDisplay(chord.num + ' — ' + chord.name, chord.tones, chord.color);
         }
 
         function computeSecondaryDominant(targetRoot) {
@@ -977,20 +970,17 @@
         }
 
         function showSecDomChordTones(targetRoot, degreeIdx, numeral) {
-            var container = document.getElementById('secdom-chord-tones');
-            if (!container) return;
             var secDom = computeSecondaryDominant(targetRoot);
-            renderChordToneDisplay(container, numeral + ' — ' + secDom.name, secDom.tones, DEGREE_COLORS[degreeIdx]);
+            renderChordToneDisplay(numeral + ' — ' + secDom.name, secDom.tones, DEGREE_COLORS[degreeIdx]);
         }
 
         function showSecDomCurrentTones(degreeIdx) {
-            var container = document.getElementById('secdom-chord-tones');
-            if (!container || selectedRing === null) return;
+            if (selectedRing === null) return;
             var tones = getChordTones(selectedRing, selectedPos, degreeIdx);
             var chords = getChords(selectedRing, selectedPos);
             var chord = chords[degreeIdx];
             var name = chordDisplayName(chord.ring, chord.pos, chord.quality);
-            renderChordToneDisplay(container, chord.num + ' — ' + name, tones, chord.color);
+            renderChordToneDisplay(chord.num + ' — ' + name, tones, chord.color);
         }
 
         function renderScaleSection(ring, pos) {
@@ -1284,6 +1274,9 @@
             selectedRing = ring;
             selectedPos  = pos;
             activeChordIdx = null;
+            var chordPanel = document.getElementById('chord-info-panel');
+            chordPanel.style.display = 'none';
+            chordPanel.closest('main').style.maxWidth = '';
             updateCircle();
             updatePanel();
         }
@@ -1296,6 +1289,9 @@
             updateCircle();
             infoDetail.style.display = 'none';
             infoDefault.style.display = 'block';
+            var chordPanel = document.getElementById('chord-info-panel');
+            chordPanel.style.display = 'none';
+            chordPanel.closest('main').style.maxWidth = '';
         }
 
         function updateCircle() {
@@ -1461,7 +1457,6 @@
                 html += '</tr>';
             }
             html += '</table>';
-            html += '<div id="chord-tones" style="display:none"></div>';
             html += '</div></div></div>';
 
             var parChords = getChords(parRing, parPos);
@@ -1497,7 +1492,6 @@
             }
             html += '</tr></tfoot>';
             html += '</table>';
-            html += '<div id="borrowed-chord-tones" class="borrowed-chord-tones" style="display:none"></div>';
 
             var tonic = selectedRing === 'major'
                 ? KEYS[selectedPos].major
@@ -1532,7 +1526,6 @@
                 html += '</tr>';
             }
             html += '</table>';
-            html += '<div id="modal-chord-tones" class="borrowed-chord-tones" style="display:none"></div>';
 
             var scale = getScale(selectedRing, selectedPos);
             html += '<p class="borrowing-sub-label" style="margin-top:1rem">Secondary Dominants</p>';
@@ -1558,7 +1551,6 @@
             }
             html += '</tr>';
             html += '</table>';
-            html += '<div id="secdom-chord-tones" class="borrowed-chord-tones" style="display:none"></div>';
 
             html += '</div></div></div>';
 
@@ -1587,12 +1579,11 @@
                 activeChordIdx = null;
                 var dRows = infoDetail.querySelectorAll('.chord-table tr[data-chord-idx]');
                 for (var x = 0; x < dRows.length; x++) dRows[x].classList.remove('active-chord');
-                document.getElementById('chord-tones').style.display = 'none';
                 var allBorrow = infoDetail.querySelectorAll('.borrowing-table td.active-borrowed');
                 for (var x = 0; x < allBorrow.length; x++) allBorrow[x].classList.remove('active-borrowed');
-                document.getElementById('borrowed-chord-tones').style.display = 'none';
-                document.getElementById('modal-chord-tones').style.display = 'none';
-                document.getElementById('secdom-chord-tones').style.display = 'none';
+                var chordPanel = document.getElementById('chord-info-panel');
+                chordPanel.style.display = 'none';
+                chordPanel.closest('main').style.maxWidth = '';
             }
 
             var chordRows = infoDetail.querySelectorAll('.chord-table tr[data-chord-idx]');
