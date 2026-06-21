@@ -559,10 +559,16 @@
         // Major pent: 1 2 3 5 6 (skips 4 and 7); Minor pent: 1 3 4 5 7 (skips 2 and 6).
         var SCALE_LETTER_OFFSETS = {
             'Major pentatonic': [0, 1, 2, 4, 5],
-            'Minor pentatonic': [0, 2, 3, 4, 6]
+            'Minor pentatonic': [0, 2, 3, 4, 6],
+            'Diminished': [0, 1, 2, 3, 4, 5, 5, 6]
         };
-        // D♯, G♯, A♯ produce double sharps in major/harmonic/melodic minor; use flat enharmonic instead
         var ENHARMONIC_FLAT = { 'D♯': 'E♭', 'G♯': 'A♭', 'A♯': 'B♭' };
+
+        var LETTER_NAMES = ['C','D','E','F','G','A','B'];
+        var LETTER_SEMITONES = [0, 2, 4, 5, 7, 9, 11];
+        var DEGREE_COLORS = [CHORD_COLORS.tonic, CHORD_COLORS.supertonic, CHORD_COLORS.mediant,
+                             CHORD_COLORS.subdominant, CHORD_COLORS.dominant, CHORD_COLORS.submediant,
+                             CHORD_COLORS.leadingTone];
 
         var svg = document.getElementById('circle-svg');
         var infoDefault = document.getElementById('info-default');
@@ -835,13 +841,6 @@
             });
         }
 
-        function handleSegmentHover(ring, pos) {
-            var key = ring + '_' + pos;
-            if (highlightedChordMap.hasOwnProperty(key)) {
-                setActiveChord(highlightedChordMap[key]);
-            }
-        }
-
         function setActiveChord(idx) {
             activeChordIdx = idx;
             var rows = document.querySelectorAll('.chord-table tr[data-chord-idx]');
@@ -851,18 +850,9 @@
             showChordTones(idx);
         }
 
-        function showChordTones(chordIdx) {
-            var container = document.getElementById('chord-tones');
-            if (!container || selectedRing === null) return;
-
-            var tones = getChordTones(selectedRing, selectedPos, chordIdx);
-            var chords = getChords(selectedRing, selectedPos);
-            var chord = chords[chordIdx];
-            var name = chordDisplayName(chord.ring, chord.pos, chord.quality);
-
+        function renderChordToneDisplay(container, title, tones, color) {
             var chordNotes = tones.map(function(t) { return t.note; });
-
-            var html = '<h4><span class="tone-color" style="background:' + chord.color + '"></span>' + esc(chord.num) + ' — ' + esc(name) + '</h4>';
+            var html = '<h4><span class="tone-color" style="background:' + color + '"></span>' + esc(title) + '</h4>';
             html += '<table class="tones-table">';
             html += '<tr><th>Note</th><th>Interval</th></tr>';
             for (var i = 0; i < tones.length; i++) {
@@ -870,42 +860,39 @@
                 html += '<td class="interval-cell">' + esc(tones[i].interval) + '</td></tr>';
             }
             html += '</table>';
-            html += renderChordStaffSvg(chordNotes);
+            html += renderStaffSvg(chordNotes, true);
             html += renderPianoSvg(chordNotes);
             container.innerHTML = html;
             container.style.display = '';
+        }
+
+        function showChordTones(chordIdx) {
+            var container = document.getElementById('chord-tones');
+            if (!container || selectedRing === null) return;
+            var tones = getChordTones(selectedRing, selectedPos, chordIdx);
+            var chords = getChords(selectedRing, selectedPos);
+            var chord = chords[chordIdx];
+            var name = chordDisplayName(chord.ring, chord.pos, chord.quality);
+            renderChordToneDisplay(container, chord.num + ' — ' + name, tones, chord.color);
         }
 
         function showBorrowedChordTones(keyRing, keyPos, chordIdx) {
             var container = document.getElementById('borrowed-chord-tones');
             if (!container) return;
-
             var tones = getChordTones(keyRing, keyPos, chordIdx);
             var chords = getChords(keyRing, keyPos);
             var chord = chords[chordIdx];
             var name = chordDisplayName(chord.ring, chord.pos, chord.quality);
-
-            var chordNotes = tones.map(function(t) { return t.note; });
-
-            var html = '<h4><span class="tone-color" style="background:' + chord.color + '"></span>' + esc(chord.num) + ' — ' + esc(name) + '</h4>';
-            html += '<table class="tones-table">';
-            html += '<tr><th>Note</th><th>Interval</th></tr>';
-            for (var i = 0; i < tones.length; i++) {
-                html += '<tr><td class="note-cell">' + esc(tones[i].note) + '</td>';
-                html += '<td class="interval-cell">' + esc(tones[i].interval) + '</td></tr>';
-            }
-            html += '</table>';
-            html += renderChordStaffSvg(chordNotes);
-            html += renderPianoSvg(chordNotes);
-            container.innerHTML = html;
-            container.style.display = '';
+            renderChordToneDisplay(container, chord.num + ' — ' + name, tones, chord.color);
         }
 
         var NOTE_SEMITONES = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
         function noteToSemitone(n) {
             var v = NOTE_SEMITONES[n.charAt(0)];
-            if (n.indexOf('♯') !== -1) v++;
-            if (n.indexOf('♭') !== -1) v--;
+            for (var c = 1; c < n.length; c++) {
+                if (n.charAt(c) === '♯') v++;
+                else if (n.charAt(c) === '♭') v--;
+            }
             return ((v % 12) + 12) % 12;
         }
 
@@ -932,12 +919,9 @@
                 } else if (i3 === 3 && i5 === 7) {
                     quality = 'Minor';
                     numeral = ROMAN_LOWER[i];
-                } else if (i3 === 3 && i5 === 6) {
+                } else {
                     quality = 'Diminished';
                     numeral = ROMAN_LOWER[i] + '°';
-                } else {
-                    quality = 'Major';
-                    numeral = ROMAN_UPPER[i];
                 }
                 var name = root;
                 if (quality === 'Minor') name += 'm';
@@ -952,9 +936,7 @@
                         { note: third, interval: INTERVAL_NAMES[quality] ? INTERVAL_NAMES[quality][1] : 'Third' },
                         { note: fifth, interval: INTERVAL_NAMES[quality] ? INTERVAL_NAMES[quality][2] : 'Fifth' }
                     ],
-                    color: [CHORD_COLORS.tonic, CHORD_COLORS.supertonic, CHORD_COLORS.mediant,
-                            CHORD_COLORS.subdominant, CHORD_COLORS.dominant, CHORD_COLORS.submediant,
-                            CHORD_COLORS.leadingTone][i]
+                    color: DEGREE_COLORS[i]
                 });
             }
             return chords;
@@ -963,40 +945,24 @@
         function showModalChordTones(tonic, modeName, chordIdx) {
             var container = document.getElementById('modal-chord-tones');
             if (!container) return;
-            var chords = getModalChords(tonic, modeName);
-            var chord = chords[chordIdx];
-            var chordNotes = chord.tones.map(function(t) { return t.note; });
-
-            var html = '<h4><span class="tone-color" style="background:' + chord.color + '"></span>' + esc(chord.num) + ' — ' + esc(chord.name) + '</h4>';
-            html += '<table class="tones-table">';
-            html += '<tr><th>Note</th><th>Interval</th></tr>';
-            for (var i = 0; i < chord.tones.length; i++) {
-                html += '<tr><td class="note-cell">' + esc(chord.tones[i].note) + '</td>';
-                html += '<td class="interval-cell">' + esc(chord.tones[i].interval) + '</td></tr>';
-            }
-            html += '</table>';
-            html += renderChordStaffSvg(chordNotes);
-            html += renderPianoSvg(chordNotes);
-            container.innerHTML = html;
-            container.style.display = '';
+            var chord = getModalChords(tonic, modeName)[chordIdx];
+            renderChordToneDisplay(container, chord.num + ' — ' + chord.name, chord.tones, chord.color);
         }
 
         function computeSecondaryDominant(targetRoot) {
-            var LNAMES = ['C','D','E','F','G','A','B'];
-            var LSEMIS = [0, 2, 4, 5, 7, 9, 11];
-            var rootLetterIdx = LNAMES.indexOf(targetRoot.charAt(0));
+            var rootLetterIdx = LETTER_NAMES.indexOf(targetRoot.charAt(0));
             var rootSemi = noteToSemitone(targetRoot);
             var domLetterIdx = (rootLetterIdx + 4) % 7;
             var domTargetSemi = (rootSemi + 7) % 12;
-            var diff = domTargetSemi - LSEMIS[domLetterIdx];
+            var diff = domTargetSemi - LETTER_SEMITONES[domLetterIdx];
             if (diff > 6) diff -= 12;
             if (diff < -6) diff += 12;
             var domAcc = diff === 1 ? '♯' : diff === -1 ? '♭' : '';
-            var domRoot = LNAMES[domLetterIdx] + domAcc;
+            var domRoot = LETTER_NAMES[domLetterIdx] + domAcc;
             var triadIntervals = [0, 4, 7];
             var triadOffsets = [0, 2, 4];
             if (hasDoubleAccidental(domRoot, triadIntervals, triadOffsets)) {
-                var ENHAR = { 'B♯': 'C', 'E♯': 'F', 'C♭': 'B', 'F♭': 'E' };
+                var ENHAR = { 'B♯': 'C', 'E♯': 'F', 'C♭': 'B', 'F♭': 'E', 'A♯': 'B♭', 'D♯': 'E♭' };
                 if (ENHAR[domRoot]) domRoot = ENHAR[domRoot];
             }
             var notes = computeScale(domRoot, triadIntervals, triadOffsets);
@@ -1014,22 +980,7 @@
             var container = document.getElementById('secdom-chord-tones');
             if (!container) return;
             var secDom = computeSecondaryDominant(targetRoot);
-            var colors = [CHORD_COLORS.tonic, CHORD_COLORS.supertonic, CHORD_COLORS.mediant,
-                          CHORD_COLORS.subdominant, CHORD_COLORS.dominant, CHORD_COLORS.submediant,
-                          CHORD_COLORS.leadingTone];
-            var chordNotes = secDom.tones.map(function(t) { return t.note; });
-            var html = '<h4><span class="tone-color" style="background:' + colors[degreeIdx] + '"></span>' + esc(numeral) + ' — ' + esc(secDom.name) + '</h4>';
-            html += '<table class="tones-table">';
-            html += '<tr><th>Note</th><th>Interval</th></tr>';
-            for (var i = 0; i < secDom.tones.length; i++) {
-                html += '<tr><td class="note-cell">' + esc(secDom.tones[i].note) + '</td>';
-                html += '<td class="interval-cell">' + esc(secDom.tones[i].interval) + '</td></tr>';
-            }
-            html += '</table>';
-            html += renderChordStaffSvg(chordNotes);
-            html += renderPianoSvg(chordNotes);
-            container.innerHTML = html;
-            container.style.display = '';
+            renderChordToneDisplay(container, numeral + ' — ' + secDom.name, secDom.tones, DEGREE_COLORS[degreeIdx]);
         }
 
         function showSecDomCurrentTones(degreeIdx) {
@@ -1039,19 +990,7 @@
             var chords = getChords(selectedRing, selectedPos);
             var chord = chords[degreeIdx];
             var name = chordDisplayName(chord.ring, chord.pos, chord.quality);
-            var chordNotes = tones.map(function(t) { return t.note; });
-            var html = '<h4><span class="tone-color" style="background:' + chord.color + '"></span>' + esc(chord.num) + ' — ' + esc(name) + '</h4>';
-            html += '<table class="tones-table">';
-            html += '<tr><th>Note</th><th>Interval</th></tr>';
-            for (var i = 0; i < tones.length; i++) {
-                html += '<tr><td class="note-cell">' + esc(tones[i].note) + '</td>';
-                html += '<td class="interval-cell">' + esc(tones[i].interval) + '</td></tr>';
-            }
-            html += '</table>';
-            html += renderChordStaffSvg(chordNotes);
-            html += renderPianoSvg(chordNotes);
-            container.innerHTML = html;
-            container.style.display = '';
+            renderChordToneDisplay(container, chord.num + ' — ' + name, tones, chord.color);
         }
 
         function renderScaleSection(ring, pos) {
@@ -1069,77 +1008,35 @@
             return html;
         }
 
-        function renderStaffSvg(notes) {
+        function renderStaffSvg(notes, compact) {
             var ROOT_POS   = { C: 0, D: 1, E: 2, F: 3, G: 4, A: 5, B: -1 };
-            var LETTER_IDX = { C: 0, D: 1, E: 2, F: 3, G: 4, A: 5, B:  6 };
+            var STAFF_IDX  = { C: 0, D: 1, E: 2, F: 3, G: 4, A: 5, B: 6 };
             var firstLetter = notes[0].charAt(0);
             var startPos = ROOT_POS[firstLetter];
-            var firstIdx = LETTER_IDX[firstLetter];
-            var prevIdx  = firstIdx;
-            var octave   = 0;
-
-            function yOf(p) { return 80 - p * 5; }
-
-            var s = '<svg class="staff-svg" viewBox="0 0 390 108" xmlns="http://www.w3.org/2000/svg">';
-
-            for (var l = 2; l <= 10; l += 2) {
-                s += '<line x1="10" y1="' + yOf(l) + '" x2="380" y2="' + yOf(l) + '" stroke="#c8c4bc" stroke-width="1"/>';
-            }
-
-            s += '<text x="14" y="76" font-size="64" fill="#44403c" font-family="\'Noto Music\',\'Segoe UI Symbol\',serif" letter-spacing="0">&#x1D11E;</text>';
-
-            var noteX0 = 75;
-            var noteSpacing = (notes.length > 1) ? (365 - noteX0) / (notes.length - 1) : 0;
-
-            for (var i = 0; i < notes.length; i++) {
-                var idx = LETTER_IDX[notes[i].charAt(0)];
-                if (i > 0 && idx < prevIdx) octave++;
-                var pos = startPos + (idx - firstIdx + octave * 7);
-                prevIdx = idx;
-                var x = noteX0 + i * noteSpacing;
-                var y = yOf(pos);
-
-                if (pos <= 0) {
-                    for (var lp = 0; lp >= pos; lp -= 2) {
-                        s += '<line x1="' + (x - 12) + '" y1="' + yOf(lp) + '" x2="' + (x + 12) + '" y2="' + yOf(lp) + '" stroke="#a8a29e" stroke-width="1"/>';
-                    }
-                }
-                if (pos >= 12) {
-                    for (var lp = 12; lp <= pos; lp += 2) {
-                        s += '<line x1="' + (x - 12) + '" y1="' + yOf(lp) + '" x2="' + (x + 12) + '" y2="' + yOf(lp) + '" stroke="#a8a29e" stroke-width="1"/>';
-                    }
-                }
-
-                var acc = '';
-                if (notes[i].indexOf('♯') !== -1) acc = '♯';
-                else if (notes[i].indexOf('♭') !== -1) acc = '♭';
-
-                if (acc) {
-                    s += '<text x="' + (x - 11) + '" y="' + (y + 5) + '" font-size="14" fill="#44403c" text-anchor="end" font-family="serif">' + acc + '</text>';
-                }
-
-                s += '<ellipse cx="' + x + '" cy="' + y + '" rx="6" ry="4.5" fill="none" stroke="#1c1917" stroke-width="1.8" transform="rotate(-10,' + x + ',' + y + ')"/>';
-
-                s += '<text x="' + x + '" y="' + (yOf(-1) + 18) + '" font-size="10" fill="#78716c" text-anchor="middle" font-family="\'Segoe UI\',system-ui,sans-serif">' + notes[i] + '</text>';
-            }
-
-            s += '</svg>';
-            return s;
-        }
-
-        function renderChordStaffSvg(notes) {
-            var LETTER_POS = { C: 0, D: 1, E: 2, F: 3, G: 4, A: 5, B: 6 };
-            var ROOT_START = { C: 0, D: 1, E: 2, F: 3, G: 4, A: 5, B: -1 };
-
-            var rootLetter = notes[0].charAt(0);
-            var basePos = ROOT_START[rootLetter];
             var positions = [];
-            for (var i = 0; i < notes.length; i++) {
-                var letter = notes[i].charAt(0);
-                var offset = LETTER_POS[letter] - LETTER_POS[rootLetter];
-                if (offset < 0) offset += 7;
-                positions.push(basePos + offset);
+
+            if (compact) {
+                var rootIdx = STAFF_IDX[firstLetter];
+                for (var i = 0; i < notes.length; i++) {
+                    var offset = STAFF_IDX[notes[i].charAt(0)] - rootIdx;
+                    if (offset < 0) offset += 7;
+                    positions.push(startPos + offset);
+                }
+            } else {
+                var firstIdx = STAFF_IDX[firstLetter];
+                var prevIdx  = firstIdx;
+                var octave   = 0;
+                for (var i = 0; i < notes.length; i++) {
+                    var idx = STAFF_IDX[notes[i].charAt(0)];
+                    if (i > 0 && idx < prevIdx) octave++;
+                    positions.push(startPos + (idx - firstIdx + octave * 7));
+                    prevIdx = idx;
+                }
             }
+
+            var noteX0 = compact ? 120 : 75;
+            var noteXMax = compact ? 270 : 365;
+            var noteSpacing = (notes.length > 1) ? (noteXMax - noteX0) / (notes.length - 1) : 0;
 
             function yOf(p) { return 80 - p * 5; }
 
@@ -1150,9 +1047,6 @@
             }
 
             s += '<text x="14" y="76" font-size="64" fill="#44403c" font-family="\'Noto Music\',\'Segoe UI Symbol\',serif" letter-spacing="0">&#x1D11E;</text>';
-
-            var noteX0 = 120;
-            var noteSpacing = (notes.length > 1) ? (270 - noteX0) / (notes.length - 1) : 0;
 
             for (var i = 0; i < notes.length; i++) {
                 var pos = positions[i];
@@ -1170,9 +1064,7 @@
                     }
                 }
 
-                var acc = '';
-                if (notes[i].indexOf('♯') !== -1) acc = '♯';
-                else if (notes[i].indexOf('♭') !== -1) acc = '♭';
+                var acc = notes[i].substring(1);
 
                 if (acc) {
                     s += '<text x="' + (x - 11) + '" y="' + (y + 5) + '" font-size="14" fill="#44403c" text-anchor="end" font-family="serif">' + acc + '</text>';
@@ -1188,7 +1080,6 @@
         }
 
         function renderPianoSvg(notes) {
-            var BASES = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
             var WHITE_LETTERS = ['C','D','E','F','G','A','B'];
             var WHITE_SEMIS = [0, 2, 4, 5, 7, 9, 11];
             var BLACK_DEFS = [
@@ -1199,16 +1090,9 @@
                 { after: 5, semi: 10 }
             ];
 
-            function toSemi(n) {
-                var v = BASES[n.charAt(0)];
-                if (n.indexOf('♯') !== -1) v++;
-                if (n.indexOf('♭') !== -1) v--;
-                return ((v % 12) + 12) % 12;
-            }
-
             var absList = [], prev = -1, off = 0;
             for (var i = 0; i < notes.length; i++) {
-                var sv = toSemi(notes[i]);
+                var sv = noteToSemitone(notes[i]);
                 if (i > 0 && sv <= prev) off += 12;
                 absList.push(off + sv);
                 prev = sv;
@@ -1272,41 +1156,28 @@
         }
 
         function computeScale(tonic, intervals, letterOffsets) {
-            var LNAMES = ['C','D','E','F','G','A','B'];
-            var LSEMIS = [0, 2, 4, 5, 7, 9, 11];
             var tonicLetter = tonic.charAt(0);
-            var tonicLetterIdx = LNAMES.indexOf(tonicLetter);
-            var tonicSemi = LSEMIS[tonicLetterIdx];
-            if (tonic.indexOf('♯') !== -1) tonicSemi = (tonicSemi + 1 + 12) % 12;
-            if (tonic.indexOf('♭') !== -1) tonicSemi = (tonicSemi - 1 + 12) % 12;
+            var tonicLetterIdx = LETTER_NAMES.indexOf(tonicLetter);
+            var tonicSemi = noteToSemitone(tonic);
             var notes = [];
             for (var i = 0; i < intervals.length; i++) {
                 var targetSemi = (tonicSemi + intervals[i]) % 12;
                 var letterOffset = letterOffsets ? letterOffsets[i] : i;
                 var letterIdx = (tonicLetterIdx + letterOffset) % 7;
-                var naturalSemi = LSEMIS[letterIdx];
+                var naturalSemi = LETTER_SEMITONES[letterIdx];
                 var diff = targetSemi - naturalSemi;
                 if (diff > 6) diff -= 12;
                 if (diff < -6) diff += 12;
-                var acc = diff === 1 ? '♯' : diff === -1 ? '♭' : '';
-                notes.push(LNAMES[letterIdx] + acc);
+                var acc = diff === 2 ? '♯♯' : diff === 1 ? '♯' : diff === -1 ? '♭' : diff === -2 ? '♭♭' : '';
+                notes.push(LETTER_NAMES[letterIdx] + acc);
             }
             return notes;
         }
 
         function hasDoubleAccidental(tonic, intervals, letterOffsets) {
-            var LNAMES = ['C','D','E','F','G','A','B'];
-            var LSEMIS = [0, 2, 4, 5, 7, 9, 11];
-            var tonicLetterIdx = LNAMES.indexOf(tonic.charAt(0));
-            var tonicSemi = LSEMIS[tonicLetterIdx];
-            if (tonic.indexOf('♯') !== -1) tonicSemi = (tonicSemi + 1 + 12) % 12;
-            if (tonic.indexOf('♭') !== -1) tonicSemi = (tonicSemi - 1 + 12) % 12;
-            for (var i = 0; i < intervals.length; i++) {
-                var letterOffset = letterOffsets ? letterOffsets[i] : i;
-                var diff = ((tonicSemi + intervals[i]) % 12) - LSEMIS[(tonicLetterIdx + letterOffset) % 7];
-                if (diff > 6) diff -= 12;
-                if (diff < -6) diff += 12;
-                if (Math.abs(diff) >= 2) return true;
+            var notes = computeScale(tonic, intervals, letterOffsets);
+            for (var i = 0; i < notes.length; i++) {
+                if (notes[i].length > 2) return true;
             }
             return false;
         }
