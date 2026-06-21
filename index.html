@@ -952,19 +952,50 @@
             if (diff < -6) diff += 12;
             var domAcc = diff === 1 ? '♯' : diff === -1 ? '♭' : '';
             var domRoot = LETTER_NAMES[domLetterIdx] + domAcc;
-            var triadIntervals = [0, 4, 7];
-            var triadOffsets = [0, 2, 4];
-            if (hasDoubleAccidental(domRoot, triadIntervals, triadOffsets)) {
+            var dom7Intervals = [0, 4, 7, 10];
+            var dom7Offsets = [0, 2, 4, 6];
+            if (hasDoubleAccidental(domRoot, dom7Intervals, dom7Offsets)) {
                 var ENHAR = { 'B♯': 'C', 'E♯': 'F', 'C♭': 'B', 'F♭': 'E', 'A♯': 'B♭', 'D♯': 'E♭' };
                 if (ENHAR[domRoot]) domRoot = ENHAR[domRoot];
             }
-            var notes = computeScale(domRoot, triadIntervals, triadOffsets);
+            var notes = computeScale(domRoot, dom7Intervals, dom7Offsets);
             return {
                 name: notes[0],
                 tones: [
                     { note: notes[0], interval: 'Root' },
                     { note: notes[1], interval: 'Major Third' },
-                    { note: notes[2], interval: 'Perfect Fifth' }
+                    { note: notes[2], interval: 'Perfect Fifth' },
+                    { note: notes[3], interval: 'Minor Seventh' }
+                ]
+            };
+        }
+
+        function computeTritoneSubstitution(secDomRoot) {
+            var secDomLetterIdx = LETTER_NAMES.indexOf(secDomRoot.charAt(0));
+            var secDomSemi = noteToSemitone(secDomRoot);
+            // tritone sub root = 6 semitones from sec dom = ♭II of the original target
+            // spelled using +4 letter steps from secDom (same direction as a dim5)
+            var subLetterIdx = (secDomLetterIdx + 4) % 7;
+            var subTargetSemi = (secDomSemi + 6) % 12;
+            var diff = subTargetSemi - LETTER_SEMITONES[subLetterIdx];
+            if (diff > 6) diff -= 12;
+            if (diff < -6) diff += 12;
+            var subAcc = diff === 1 ? '♯' : diff === -1 ? '♭' : '';
+            var subRoot = LETTER_NAMES[subLetterIdx] + subAcc;
+            var dom7Intervals = [0, 4, 7, 10];
+            var dom7Offsets = [0, 2, 4, 6];
+            if (hasDoubleAccidental(subRoot, dom7Intervals, dom7Offsets)) {
+                var ENHAR = { 'B♯': 'C', 'E♯': 'F', 'C♭': 'B', 'F♭': 'E', 'A♯': 'B♭', 'D♯': 'E♭' };
+                if (ENHAR[subRoot]) subRoot = ENHAR[subRoot];
+            }
+            var notes = computeScale(subRoot, dom7Intervals, dom7Offsets);
+            return {
+                name: subRoot,
+                tones: [
+                    { note: notes[0], interval: 'Root' },
+                    { note: notes[1], interval: 'Major Third' },
+                    { note: notes[2], interval: 'Perfect Fifth' },
+                    { note: notes[3], interval: 'Minor Seventh' }
                 ]
             };
         }
@@ -972,6 +1003,11 @@
         function showSecDomChordTones(targetRoot, degreeIdx, numeral) {
             var secDom = computeSecondaryDominant(targetRoot);
             renderChordToneDisplay(numeral + ' — ' + secDom.name, secDom.tones, DEGREE_COLORS[degreeIdx]);
+        }
+
+        function showTritoneSubChordTones(secDomRoot, degreeIdx, numeral) {
+            var triSub = computeTritoneSubstitution(secDomRoot);
+            renderChordToneDisplay(numeral + ' — ' + triSub.name, triSub.tones, DEGREE_COLORS[degreeIdx]);
         }
 
         function showSecDomCurrentTones(degreeIdx) {
@@ -1550,6 +1586,14 @@
                 html += '<td data-secdom-type="dominant" data-secdom-idx="' + bi + '" data-secdom-root="' + esc(scale[bi]) + '" data-secdom-num="V/' + esc(chords[bi].num) + '">' + esc(secDom.name) + '</td>';
             }
             html += '</tr>';
+            html += '<tr>';
+            html += '<td class="row-label">&#x266D;II7 /</td>';
+            for (var bi = 0; bi < chords.length; bi++) {
+                var sdSubRoot = computeSecondaryDominant(scale[bi]).name;
+                var sdSub = computeTritoneSubstitution(sdSubRoot);
+                html += '<td data-secdom-type="tritonesub" data-secdom-idx="' + bi + '" data-secdom-secdom="' + esc(sdSubRoot) + '" data-secdom-num="&#x266D;II7/' + esc(chords[bi].num) + '">' + esc(sdSub.name) + '</td>';
+            }
+            html += '</tr>';
             html += '</table>';
 
             html += '</div></div></div>';
@@ -1645,6 +1689,12 @@
                         var idx = parseInt(this.getAttribute('data-secdom-idx'), 10);
                         if (type === 'current') {
                             showSecDomCurrentTones(idx);
+                        } else if (type === 'tritonesub') {
+                            showTritoneSubChordTones(
+                                this.getAttribute('data-secdom-secdom'),
+                                idx,
+                                this.getAttribute('data-secdom-num')
+                            );
                         } else {
                             showSecDomChordTones(
                                 this.getAttribute('data-secdom-root'),
