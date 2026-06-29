@@ -313,7 +313,7 @@
             gap: 1.25rem;
             align-items: flex-start;
         }
-        #scale-result {
+        #scale-result, #chord-result {
             flex: 1;
             background: #fff;
             border-radius: 12px;
@@ -321,7 +321,7 @@
             box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
             min-width: 260px;
         }
-        #scale-result h2 { font-size: 1.3rem; margin-bottom: 0.25rem; }
+        #scale-result h2, #chord-result h2 { font-size: 1.3rem; margin-bottom: 0.25rem; }
         .scales-col { flex: 1; }
         .scales-col-header {
             font-size: 0.75rem;
@@ -349,6 +349,7 @@
         }
         .scale-block:hover { background: #e4dfd6; color: #1c1917; }
         .scale-block.active { background: #2563eb; color: #fff; font-weight: 600; }
+        .scale-block:disabled { opacity: 0.35; cursor: default; pointer-events: none; }
         .scales-type-separator {
             font-size: 0.7rem;
             text-transform: uppercase;
@@ -396,7 +397,7 @@
             #info-panel { width: 100%; max-width: 480px; }
             #chord-info-panel { flex: none; width: 100%; max-width: 480px; position: static; }
             .scales-layout { flex-direction: column; }
-            #scale-result { width: 100%; }
+            #scale-result, #chord-result { width: 100%; }
         }
     </style>
 </head>
@@ -445,12 +446,25 @@
         </div>
     </div>
     <div class="tab-content" id="tab-chords">
-        <main>
-            <div id="chords-panel" style="max-width:600px;margin:0 auto">
-                <h2>Chords</h2>
-                <p style="color:#78716c">Chord explorer coming soon.</p>
+        <div class="scales-page">
+            <div class="scales-layout">
+                <div class="scales-selector">
+                    <div class="scales-col">
+                        <div class="scales-col-header">Root</div>
+                        <div id="chord-root-list"></div>
+                    </div>
+                    <div class="scales-col">
+                        <div class="scales-col-header">Type</div>
+                        <div id="chord-type-list"></div>
+                    </div>
+                    <div class="scales-col">
+                        <div class="scales-col-header">Inversion</div>
+                        <div id="chord-inversion-list"></div>
+                    </div>
+                </div>
+                <div id="chord-result" style="display:none"></div>
             </div>
-        </main>
+        </div>
     </div>
 
     <script>
@@ -559,6 +573,54 @@
         };
         var ENHARMONIC_FLAT = { 'D♯': 'E♭', 'G♯': 'A♭', 'A♯': 'B♭' };
 
+        var CHORD_TYPES = ['Major', 'Minor', '7th', '5th', 'Diminished', 'Diminished 7th', 'Augmented', 'Suspended 2nd', 'Suspended 4th', 'Major 7th', 'Minor 7th', 'Major 6th', '7th Suspended 4th'];
+        var INVERSIONS = ['Root', 'First', 'Second'];
+        var CHORD_TYPE_INTERVALS = {
+            'Major':              [0, 4, 7],
+            'Minor':              [0, 3, 7],
+            '7th':                [0, 4, 7, 10],
+            '5th':                [0, 7],
+            'Diminished':         [0, 3, 6],
+            'Diminished 7th':     [0, 3, 6, 9],
+            'Augmented':          [0, 4, 8],
+            'Suspended 2nd':      [0, 2, 7],
+            'Suspended 4th':      [0, 5, 7],
+            'Major 7th':          [0, 4, 7, 11],
+            'Minor 7th':          [0, 3, 7, 10],
+            'Major 6th':          [0, 4, 7, 9],
+            '7th Suspended 4th':  [0, 5, 7, 10]
+        };
+        var CHORD_TYPE_LETTER_OFFSETS = {
+            'Major':              [0, 2, 4],
+            'Minor':              [0, 2, 4],
+            '7th':                [0, 2, 4, 6],
+            '5th':                [0, 4],
+            'Diminished':         [0, 2, 4],
+            'Diminished 7th':     [0, 2, 4, 6],
+            'Augmented':          [0, 2, 4],
+            'Suspended 2nd':      [0, 1, 4],
+            'Suspended 4th':      [0, 3, 4],
+            'Major 7th':          [0, 2, 4, 6],
+            'Minor 7th':          [0, 2, 4, 6],
+            'Major 6th':          [0, 2, 4, 5],
+            '7th Suspended 4th':  [0, 3, 4, 6]
+        };
+        var CHORD_TYPE_INTERVAL_NAMES = {
+            'Major':              ['Root', 'Major Third', 'Perfect Fifth'],
+            'Minor':              ['Root', 'Minor Third', 'Perfect Fifth'],
+            '7th':                ['Root', 'Major Third', 'Perfect Fifth', 'Minor Seventh'],
+            '5th':                ['Root', 'Perfect Fifth'],
+            'Diminished':         ['Root', 'Minor Third', 'Diminished Fifth'],
+            'Diminished 7th':     ['Root', 'Minor Third', 'Diminished Fifth', 'Diminished Seventh'],
+            'Augmented':          ['Root', 'Major Third', 'Augmented Fifth'],
+            'Suspended 2nd':      ['Root', 'Major Second', 'Perfect Fifth'],
+            'Suspended 4th':      ['Root', 'Perfect Fourth', 'Perfect Fifth'],
+            'Major 7th':          ['Root', 'Major Third', 'Perfect Fifth', 'Major Seventh'],
+            'Minor 7th':          ['Root', 'Minor Third', 'Perfect Fifth', 'Minor Seventh'],
+            'Major 6th':          ['Root', 'Major Third', 'Perfect Fifth', 'Major Sixth'],
+            '7th Suspended 4th':  ['Root', 'Perfect Fourth', 'Perfect Fifth', 'Minor Seventh']
+        };
+
         var LETTER_NAMES = ['C','D','E','F','G','A','B'];
         var LETTER_SEMITONES = [0, 2, 4, 5, 7, 9, 11];
         var DEGREE_COLORS = [CHORD_COLORS.tonic, CHORD_COLORS.supertonic, CHORD_COLORS.mediant,
@@ -580,6 +642,9 @@
         var activeChordIdx = null;
         var selectedTonic = null;
         var selectedScaleType = null;
+        var selectedChordRoot = null;
+        var selectedChordType = null;
+        var selectedInversion = 'Root';
 
         function mod(n, m) { return ((n % m) + m) % m; }
 
@@ -1235,6 +1300,106 @@
             return html;
         }
 
+        function renderChordResult(root, chordType) {
+            var intervals = CHORD_TYPE_INTERVALS[chordType];
+            var letterOffsets = CHORD_TYPE_LETTER_OFFSETS[chordType];
+            var r = (ENHARMONIC_FLAT.hasOwnProperty(root) && hasDoubleAccidental(root, intervals, letterOffsets))
+                ? ENHARMONIC_FLAT[root] : root;
+            var notes = computeScale(r, intervals, letterOffsets);
+            var intervalNames = CHORD_TYPE_INTERVAL_NAMES[chordType].slice();
+            var rotation = selectedInversion === 'First' ? 1 : selectedInversion === 'Second' ? 2 : 0;
+            if (rotation > 0) {
+                notes = notes.slice(rotation).concat(notes.slice(0, rotation));
+                intervalNames = intervalNames.slice(rotation).concat(intervalNames.slice(0, rotation));
+            }
+            var invLabel = rotation > 0 ? ' — ' + selectedInversion + ' Inversion' : '';
+            var html = '<h2>' + esc(root + ' ' + chordType + invLabel) + '</h2>';
+            html += '<p class="scale-sequence" style="margin-top:0.5rem">';
+            for (var i = 0; i < notes.length; i++) {
+                if (i > 0) html += '<span class="sep"> – </span>';
+                html += '<span class="note">' + esc(notes[i]) + '</span>';
+            }
+            html += '</p>';
+            html += '<table class="tones-table" style="margin-top:0.75rem">';
+            html += '<tr><th>Note</th><th>Interval</th></tr>';
+            for (var i = 0; i < notes.length; i++) {
+                html += '<tr><td class="note-cell">' + esc(notes[i]) + '</td>';
+                html += '<td class="interval-cell">' + esc(intervalNames[i]) + '</td></tr>';
+            }
+            html += '</table>';
+            html += renderStaffSvg(notes, true);
+            html += renderPianoSvg(notes);
+            return html;
+        }
+
+        function buildChordsTab() {
+            var rootList = document.getElementById('chord-root-list');
+            var typeList = document.getElementById('chord-type-list');
+            var invList  = document.getElementById('chord-inversion-list');
+            for (var i = 0; i < CHROMATIC_TONES.length; i++) {
+                (function(tone) {
+                    var btn = document.createElement('button');
+                    btn.className = 'scale-block';
+                    btn.textContent = tone;
+                    btn.addEventListener('click', function() {
+                        selectedChordRoot = (selectedChordRoot === tone) ? null : tone;
+                        updateChordBlocks();
+                    });
+                    rootList.appendChild(btn);
+                })(CHROMATIC_TONES[i]);
+            }
+            for (var i = 0; i < CHORD_TYPES.length; i++) {
+                (function(type) {
+                    var btn = document.createElement('button');
+                    btn.className = 'scale-block';
+                    btn.textContent = type;
+                    btn.addEventListener('click', function() {
+                        selectedChordType = (selectedChordType === type) ? null : type;
+                        updateChordBlocks();
+                    });
+                    typeList.appendChild(btn);
+                })(CHORD_TYPES[i]);
+            }
+            for (var i = 0; i < INVERSIONS.length; i++) {
+                (function(inv) {
+                    var btn = document.createElement('button');
+                    btn.className = 'scale-block' + (inv === 'Root' ? ' active' : '');
+                    btn.textContent = inv;
+                    btn.addEventListener('click', function() {
+                        selectedInversion = inv;
+                        updateChordBlocks();
+                    });
+                    invList.appendChild(btn);
+                })(INVERSIONS[i]);
+            }
+        }
+
+        function updateChordBlocks() {
+            var rootBtns = document.querySelectorAll('#chord-root-list .scale-block');
+            for (var i = 0; i < rootBtns.length; i++) {
+                rootBtns[i].classList.toggle('active', CHROMATIC_TONES[i] === selectedChordRoot);
+            }
+            var typeBtns = document.querySelectorAll('#chord-type-list .scale-block');
+            for (var i = 0; i < typeBtns.length; i++) {
+                typeBtns[i].classList.toggle('active', CHORD_TYPES[i] === selectedChordType);
+            }
+            var isPowerChord = selectedChordType === '5th';
+            if (isPowerChord) selectedInversion = 'Root';
+            var invBtns = document.querySelectorAll('#chord-inversion-list .scale-block');
+            for (var i = 0; i < invBtns.length; i++) {
+                var isDisabled = isPowerChord && INVERSIONS[i] !== 'Root';
+                invBtns[i].disabled = isDisabled;
+                invBtns[i].classList.toggle('active', INVERSIONS[i] === selectedInversion);
+            }
+            var result = document.getElementById('chord-result');
+            if (selectedChordRoot !== null && selectedChordType !== null) {
+                result.innerHTML = renderChordResult(selectedChordRoot, selectedChordType);
+                result.style.display = '';
+            } else {
+                result.style.display = 'none';
+            }
+        }
+
         function buildScalesTab() {
             var tonicList = document.getElementById('scale-tonic-list');
             var typeList  = document.getElementById('scale-type-list');
@@ -1715,6 +1880,7 @@
 
         buildCircle();
         buildScalesTab();
+        buildChordsTab();
 
         var tabBtns = document.querySelectorAll('.tab-btn');
         for (var t = 0; t < tabBtns.length; t++) {
