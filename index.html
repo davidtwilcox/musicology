@@ -574,7 +574,7 @@
         var ENHARMONIC_FLAT = { 'D♯': 'E♭', 'G♯': 'A♭', 'A♯': 'B♭' };
 
         var CHORD_TYPES = ['Major', 'Minor', '7th', '5th', 'Diminished', 'Diminished 7th', 'Augmented', 'Suspended 2nd', 'Suspended 4th', 'Major 7th', 'Minor 7th', 'Major 6th', '7th Suspended 4th'];
-        var INVERSIONS = ['Root', 'First', 'Second'];
+        var INVERSIONS = ['Root', 'First', 'Second', 'Third'];
         var CHORD_TYPE_INTERVALS = {
             'Major':              [0, 4, 7],
             'Minor':              [0, 3, 7],
@@ -1307,7 +1307,7 @@
                 ? ENHARMONIC_FLAT[root] : root;
             var notes = computeScale(r, intervals, letterOffsets);
             var intervalNames = CHORD_TYPE_INTERVAL_NAMES[chordType].slice();
-            var rotation = selectedInversion === 'First' ? 1 : selectedInversion === 'Second' ? 2 : 0;
+            var rotation = selectedInversion === 'First' ? 1 : selectedInversion === 'Second' ? 2 : selectedInversion === 'Third' ? 3 : 0;
             if (rotation > 0) {
                 notes = notes.slice(rotation).concat(notes.slice(0, rotation));
                 intervalNames = intervalNames.slice(rotation).concat(intervalNames.slice(0, rotation));
@@ -1383,11 +1383,14 @@
             for (var i = 0; i < typeBtns.length; i++) {
                 typeBtns[i].classList.toggle('active', CHORD_TYPES[i] === selectedChordType);
             }
+            var noteCount = selectedChordType ? CHORD_TYPE_INTERVALS[selectedChordType].length : 0;
             var isPowerChord = selectedChordType === '5th';
             if (isPowerChord) selectedInversion = 'Root';
+            if (noteCount < 4 && selectedInversion === 'Third') selectedInversion = 'Root';
             var invBtns = document.querySelectorAll('#chord-inversion-list .scale-block');
             for (var i = 0; i < invBtns.length; i++) {
-                var isDisabled = isPowerChord && INVERSIONS[i] !== 'Root';
+                var isDisabled = (isPowerChord && INVERSIONS[i] !== 'Root') ||
+                                 (INVERSIONS[i] === 'Third' && noteCount < 4);
                 invBtns[i].disabled = isDisabled;
                 invBtns[i].classList.toggle('active', INVERSIONS[i] === selectedInversion);
             }

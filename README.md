@@ -24,7 +24,7 @@ A **Chord Explorer** for any combination of root note, chord type, and inversion
 - **Chord notes** displayed as a text sequence
 - **Staff notation** on a treble clef staff
 - **Piano keyboard** with the chord notes highlighted
-- **Inversions** — Root (default), First, and Second inversion; inversion options are disabled where not applicable (power chords)
+- **Inversions** — Root (default), First, Second, and Third inversion; Third is only enabled for four-note chords (tetrads), and First/Second are disabled for power chords
 
 Chord types available:
 Major, Minor, 7th, 5th, Diminished, Diminished 7th, Augmented, Suspended 2nd, Suspended 4th, Major 7th, Minor 7th, Major 6th, 7th Suspended 4th
