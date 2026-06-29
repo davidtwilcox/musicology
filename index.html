@@ -48,6 +48,7 @@
             cursor: pointer;
         }
         .segment:hover { filter: brightness(0.93); }
+        .segment:focus { outline: 2px solid #2563eb; outline-offset: 2px; }
 
         .key-label {
             pointer-events: none;
@@ -112,6 +113,7 @@
             user-select: none;
         }
         .info-section h3:hover { color: #78716c; }
+        .info-section h3:focus { outline: 2px solid #2563eb; border-radius: 3px; }
         .info-section h3 .collapse-indicator {
             display: inline-block;
             font-size: 0.55rem;
@@ -397,6 +399,7 @@
             #info-panel { width: 100%; max-width: 480px; }
             #chord-info-panel { flex: none; width: 100%; max-width: 480px; position: static; }
             .scales-layout { flex-direction: column; }
+            .scales-selector { flex-wrap: wrap; }
             #scale-result, #chord-result { width: 100%; }
         }
     </style>
@@ -406,12 +409,12 @@
         <h1>Musicology</h1>
         <p>Interactive Music Theory Explorer</p>
     </header>
-    <nav class="tab-bar">
-        <button class="tab-btn active" data-tab="keys">Keys</button>
-        <button class="tab-btn" data-tab="scales">Scales</button>
-        <button class="tab-btn" data-tab="chords">Chords</button>
+    <nav class="tab-bar" role="tablist" aria-label="Main sections">
+        <button class="tab-btn active" data-tab="keys" role="tab" id="tab-btn-keys" aria-selected="true" aria-controls="tab-keys">Keys</button>
+        <button class="tab-btn" data-tab="scales" role="tab" id="tab-btn-scales" aria-selected="false" aria-controls="tab-scales">Scales</button>
+        <button class="tab-btn" data-tab="chords" role="tab" id="tab-btn-chords" aria-selected="false" aria-controls="tab-chords">Chords</button>
     </nav>
-    <div class="tab-content active" id="tab-keys">
+    <div class="tab-content active" id="tab-keys" role="tabpanel" aria-labelledby="tab-btn-keys">
         <main>
             <div id="circle-container">
                 <svg id="circle-svg" viewBox="-265 -265 530 530" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Interactive Circle of Fifths diagram"></svg>
@@ -428,7 +431,7 @@
             <div id="chord-info-panel" style="display:none"></div>
         </main>
     </div>
-    <div class="tab-content" id="tab-scales">
+    <div class="tab-content" id="tab-scales" role="tabpanel" aria-labelledby="tab-btn-scales">
         <div class="scales-page">
             <div class="scales-layout">
                 <div class="scales-selector">
@@ -445,7 +448,7 @@
             </div>
         </div>
     </div>
-    <div class="tab-content" id="tab-chords">
+    <div class="tab-content" id="tab-chords" role="tabpanel" aria-labelledby="tab-btn-chords">
         <div class="scales-page">
             <div class="scales-layout">
                 <div class="scales-selector">
@@ -638,7 +641,6 @@
 
         var selectedRing = null;
         var selectedPos  = null;
-        var highlightedChordMap = {};
         var activeChordIdx = null;
         var selectedTonic = null;
         var selectedScaleType = null;
@@ -705,10 +707,14 @@
                 var op = svgEl('path', {
                     d: arcPath(OUTER_R1, OUTER_R2, i),
                     fill: DEFAULT_OUTER, stroke: '#fff', 'stroke-width': '2.5',
-                    class: 'segment'
+                    class: 'segment', tabindex: '0', role: 'button'
                 });
                 (function(idx) {
+                    op.setAttribute('aria-label', KEYS[idx].major + ' major');
                     op.addEventListener('click', function() { selectKey('major', idx); });
+                    op.addEventListener('keydown', function(e) {
+                        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectKey('major', idx); }
+                    });
                 })(i);
                 svg.appendChild(op);
                 outerPaths.push(op);
@@ -716,10 +722,14 @@
                 var ip = svgEl('path', {
                     d: arcPath(INNER_R1, INNER_R2, i),
                     fill: DEFAULT_INNER, stroke: '#fff', 'stroke-width': '2.5',
-                    class: 'segment'
+                    class: 'segment', tabindex: '0', role: 'button'
                 });
                 (function(idx) {
+                    ip.setAttribute('aria-label', stripMinor(KEYS[idx].minor) + ' minor');
                     ip.addEventListener('click', function() { selectKey('minor', idx); });
+                    ip.addEventListener('keydown', function(e) {
+                        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectKey('minor', idx); }
+                    });
                 })(i);
                 svg.appendChild(ip);
                 innerPaths.push(ip);
@@ -849,40 +859,30 @@
 
             var SHARP_POS = [10, 7, 11, 8, 5, 9, 6];
             var FLAT_POS  = [6, 9, 5, 8, 4, 7, 3];
-
             function yOf(p) { return 80 - p * 5; }
 
-            var s = '<svg class="staff-svg" viewBox="0 0 390 108" xmlns="http://www.w3.org/2000/svg">';
-
-            for (var l = 2; l <= 10; l += 2) {
-                s += '<line x1="10" y1="' + yOf(l) + '" x2="380" y2="' + yOf(l) + '" stroke="#c8c4bc" stroke-width="1"/>';
-            }
-
-            s += '<text x="14" y="76" font-size="64" fill="#44403c" font-family="\'Noto Music\',\'Segoe UI Symbol\',serif" letter-spacing="0">&#x1D11E;</text>';
-
-            var isSharp = k.sigType === '♯';
-            var count = k.sigCount;
-            var positions = isSharp ? SHARP_POS : FLAT_POS;
-            var symbol = isSharp ? '♯' : '♭';
-            var startX = 72;
-            var spacing = 16;
-
-            if (k.sigType.indexOf('♯') !== -1 && k.sigType.indexOf('♭') !== -1) {
-                for (var i = 0; i < 6; i++) {
-                    var x = startX + i * spacing;
-                    var y = yOf(SHARP_POS[i]);
-                    s += '<text x="' + x + '" y="' + (y + 5) + '" font-size="16" fill="#44403c" text-anchor="middle" font-family="serif">♯</text>';
-                }
-            } else {
+            function oneStaff(count, isSharp) {
+                var positions = isSharp ? SHARP_POS : FLAT_POS;
+                var symbol = isSharp ? '♯' : '♭';
+                var startX = 72, spacing = 16;
+                var s = '<svg class="staff-svg" viewBox="0 0 390 108" xmlns="http://www.w3.org/2000/svg">';
+                for (var l = 2; l <= 10; l += 2)
+                    s += '<line x1="10" y1="' + yOf(l) + '" x2="380" y2="' + yOf(l) + '" stroke="#c8c4bc" stroke-width="1"/>';
+                s += '<text x="14" y="76" font-size="64" fill="#44403c" font-family="\'Noto Music\',\'Segoe UI Symbol\',serif" letter-spacing="0">&#x1D11E;</text>';
                 for (var i = 0; i < count; i++) {
                     var x = startX + i * spacing;
                     var y = yOf(positions[i]);
                     s += '<text x="' + x + '" y="' + (y + 5) + '" font-size="16" fill="#44403c" text-anchor="middle" font-family="serif">' + symbol + '</text>';
                 }
+                s += '</svg>';
+                return s;
             }
 
-            s += '</svg>';
-            return s;
+            if (k.sigType.indexOf('♯') !== -1 && k.sigType.indexOf('♭') !== -1) {
+                return '<p style="font-size:0.75rem;color:#78716c;margin-top:0.5rem">F♯ — 6 sharps</p>' + oneStaff(6, true) +
+                       '<p style="font-size:0.75rem;color:#78716c;margin-top:0.5rem">G♭ — 6 flats</p>' + oneStaff(6, false);
+            }
+            return oneStaff(k.sigCount, k.sigType === '♯');
         }
 
         function getScale(ring, pos) {
@@ -1282,9 +1282,13 @@
         }
 
         function renderScaleResult(tonic, scaleType) {
+            var intervals = SCALE_INTERVALS[scaleType];
+            var letterOffsets = SCALE_LETTER_OFFSETS[scaleType] || null;
+            var displayTonic = (ENHARMONIC_FLAT.hasOwnProperty(tonic) && hasDoubleAccidental(tonic, intervals, letterOffsets))
+                ? ENHARMONIC_FLAT[tonic] : tonic;
             var notes = computeScaleNotes(tonic, scaleType);
             var notes8 = notes.concat([notes[0]]);
-            var html = '<h2>' + esc(tonic + ' ' + scaleType) + '</h2>';
+            var html = '<h2>' + esc(displayTonic + ' ' + scaleType) + '</h2>';
             html += '<div class="info-section" style="margin-top:1rem">';
             html += '<h3><span class="collapse-indicator">▼</span>Scale Notes</h3>';
             html += '<div class="info-section-content"><div>';
@@ -1313,7 +1317,7 @@
                 intervalNames = intervalNames.slice(rotation).concat(intervalNames.slice(0, rotation));
             }
             var invLabel = rotation > 0 ? ' — ' + selectedInversion + ' Inversion' : '';
-            var html = '<h2>' + esc(root + ' ' + chordType + invLabel) + '</h2>';
+            var html = '<h2>' + esc(r + ' ' + chordType + invLabel) + '</h2>';
             html += '<p class="scale-sequence" style="margin-top:0.5rem">';
             for (var i = 0; i < notes.length; i++) {
                 if (i > 0) html += '<span class="sep"> – </span>';
@@ -1403,6 +1407,24 @@
             }
         }
 
+        function makeCollapsible(headers) {
+            for (var i = 0; i < headers.length; i++) {
+                headers[i].setAttribute('role', 'button');
+                headers[i].setAttribute('tabindex', '0');
+                headers[i].setAttribute('aria-expanded', 'true');
+                (function(h) {
+                    function toggle() {
+                        var isNowCollapsed = h.parentElement.classList.toggle('collapsed');
+                        h.setAttribute('aria-expanded', isNowCollapsed ? 'false' : 'true');
+                    }
+                    h.addEventListener('click', toggle);
+                    h.addEventListener('keydown', function(e) {
+                        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); }
+                    });
+                })(headers[i]);
+            }
+        }
+
         function buildScalesTab() {
             var tonicList = document.getElementById('scale-tonic-list');
             var typeList  = document.getElementById('scale-type-list');
@@ -1459,12 +1481,7 @@
             if (selectedTonic !== null && selectedScaleType !== null) {
                 result.innerHTML = renderScaleResult(selectedTonic, selectedScaleType);
                 result.style.display = '';
-                var scaleHeaders = result.querySelectorAll('.info-section h3');
-                for (var j = 0; j < scaleHeaders.length; j++) {
-                    scaleHeaders[j].addEventListener('click', function() {
-                        this.parentElement.classList.toggle('collapsed');
-                    });
-                }
+                makeCollapsible(result.querySelectorAll('.info-section h3'));
             } else {
                 result.style.display = 'none';
             }
@@ -1489,7 +1506,6 @@
             selectedRing = null;
             selectedPos  = null;
             activeChordIdx = null;
-            highlightedChordMap = {};
             updateCircle();
             infoDetail.style.display = 'none';
             infoDefault.style.display = 'block';
@@ -1541,10 +1557,8 @@
             }
 
             var chords = getChords(selectedRing, selectedPos);
-            highlightedChordMap = {};
             for (var c = 0; c < chords.length; c++) {
                 var ch = chords[c];
-                highlightedChordMap[ch.ring + '_' + ch.pos] = c;
                 var paths = ch.ring === 'major' ? outerPaths : innerPaths;
                 var texts = ch.ring === 'major' ? outerTexts : innerTexts;
                 paths[ch.pos].setAttribute('fill', ch.color);
@@ -1770,12 +1784,7 @@
 
             document.getElementById('clear-btn').addEventListener('click', clearSelection);
 
-            var sectionHeaders = infoDetail.querySelectorAll('.info-section h3');
-            for (var s = 0; s < sectionHeaders.length; s++) {
-                sectionHeaders[s].addEventListener('click', function() {
-                    this.parentElement.classList.toggle('collapsed');
-                });
-            }
+            makeCollapsible(infoDetail.querySelectorAll('.info-section h3'));
 
             var links = infoDetail.querySelectorAll('.rel-link');
             for (var j = 0; j < links.length; j++) {
@@ -1889,8 +1898,12 @@
         for (var t = 0; t < tabBtns.length; t++) {
             tabBtns[t].addEventListener('click', function() {
                 var target = this.getAttribute('data-tab');
-                for (var j = 0; j < tabBtns.length; j++) tabBtns[j].classList.remove('active');
+                for (var j = 0; j < tabBtns.length; j++) {
+                    tabBtns[j].classList.remove('active');
+                    tabBtns[j].setAttribute('aria-selected', 'false');
+                }
                 this.classList.add('active');
+                this.setAttribute('aria-selected', 'true');
                 var panes = document.querySelectorAll('.tab-content');
                 for (var j = 0; j < panes.length; j++) panes[j].classList.remove('active');
                 document.getElementById('tab-' + target).classList.add('active');
