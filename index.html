@@ -357,6 +357,10 @@
         .pos-btn { padding: 0.25rem 0.65rem; border-radius: 6px; background: #f0ece5; color: #78716c; font-weight: 500; font-size: 0.82rem; cursor: pointer; border: none; font-family: inherit; transition: background 0.15s, color 0.15s; }
         .pos-btn:hover { background: #e4dfd6; color: #1c1917; }
         .pos-btn.active { background: #2563eb; color: #fff; font-weight: 600; }
+        .tuning-selector { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 0.6rem; }
+        .tuning-btn { padding: 0.25rem 0.6rem; border-radius: 6px; background: #f0ece5; color: #78716c; font-weight: 500; font-size: 0.78rem; cursor: pointer; border: none; font-family: inherit; transition: background 0.15s, color 0.15s; }
+        .tuning-btn:hover { background: #e4dfd6; color: #1c1917; }
+        .tuning-btn.active { background: #2563eb; color: #fff; font-weight: 600; }
         .scales-type-separator {
             font-size: 0.7rem;
             text-transform: uppercase;
@@ -635,6 +639,15 @@
                              CHORD_COLORS.subdominant, CHORD_COLORS.dominant, CHORD_COLORS.submediant,
                              CHORD_COLORS.leadingTone];
 
+        var GUITAR_TUNING_NAMES = ['Standard', 'Drop D', 'DADGAD', 'All Fourths', 'All Fourths (Tuned Down)'];
+        var GUITAR_TUNINGS = {
+            'Standard':                    ['E', 'A', 'D', 'G', 'B', 'E'],
+            'Drop D':                      ['D', 'A', 'D', 'G', 'B', 'E'],
+            'DADGAD':                      ['D', 'A', 'D', 'G', 'A', 'D'],
+            'All Fourths':                 ['E', 'A', 'D', 'G', 'C', 'F'],
+            'All Fourths (Tuned Down)':    ['E♭', 'A♭', 'D♭', 'G♭', 'B', 'E']
+        };
+
         var svg = document.getElementById('circle-svg');
         var infoDefault = document.getElementById('info-default');
         var infoDetail  = document.getElementById('info-detail');
@@ -653,6 +666,8 @@
         var selectedChordType = null;
         var selectedInversion = 'Root';
         var selectedChordPosition = 'All';
+        var selectedScaleTuning  = 'Standard';
+        var selectedChordTuning  = 'Standard';
 
         function mod(n, m) { return ((n % m) + m) % m; }
 
@@ -1320,11 +1335,10 @@
             return s;
         }
 
-        function computeChordPositions(rootSemi) {
-            var GUITAR_SEMIS = [4, 9, 2, 7, 11, 4];
+        function computeChordPositions(rootSemi, tuning) {
             var fretSet = {};
-            for (var i = 0; i < 6; i++) {
-                var f = (rootSemi - GUITAR_SEMIS[i] + 12) % 12;
+            for (var i = 0; i < tuning.length; i++) {
+                var f = (rootSemi - noteToSemitone(tuning[i]) + 12) % 12;
                 fretSet[f] = true;
                 if (f + 12 <= 12) fretSet[f + 12] = true;
             }
@@ -1342,9 +1356,9 @@
             return [start, start + 4];
         }
 
-        function renderGuitarChordSvg(notes, lowFret, highFret) {
-            var GUITAR_TUNING = ['E', 'A', 'D', 'G', 'B', 'E'];
-            var numStrings = 6, STRING_SPACING = 20, STRING_START_Y = 18;
+        function renderGuitarChordSvg(notes, lowFret, highFret, tuning) {
+            var GUITAR_TUNING = tuning;
+            var numStrings = tuning.length, STRING_SPACING = 20, STRING_START_Y = 18;
             var isFullView = (lowFret === 0 && highFret === 12);
             var showOpen = (lowFret === 0);
             var FRET_W = isFullView ? 42 : 72;
@@ -1484,7 +1498,13 @@
             html += '<div class="info-section">';
             html += '<h3><span class="collapse-indicator">▼</span>Guitar</h3>';
             html += '<div class="info-section-content"><div>';
-            html += renderFretboardSvg(notes, ['E', 'A', 'D', 'G', 'B', 'E']);
+            html += '<div class="tuning-selector">';
+            for (var ti = 0; ti < GUITAR_TUNING_NAMES.length; ti++) {
+                var tn = GUITAR_TUNING_NAMES[ti];
+                html += '<button class="tuning-btn' + (selectedScaleTuning === tn ? ' active' : '') + '" data-tuning="' + esc(tn) + '">' + esc(tn) + '</button>';
+            }
+            html += '</div>';
+            html += renderFretboardSvg(notes, GUITAR_TUNINGS[selectedScaleTuning]);
             html += '</div></div></div>';
             html += '<div class="info-section">';
             html += '<h3><span class="collapse-indicator">▼</span>Bass Guitar</h3>';
@@ -1524,24 +1544,34 @@
             html += '</table>';
             html += renderStaffSvg(notes, true);
             html += renderPianoSvg(notes);
-            var chordPositions = computeChordPositions(noteToSemitone(r));
+            var chordTuning = GUITAR_TUNINGS[selectedChordTuning];
+            var chordPositions = computeChordPositions(noteToSemitone(r), chordTuning);
             html += '<div class="info-section" style="margin-top:0.75rem">';
             html += '<h3><span class="collapse-indicator">▼</span>Guitar</h3>';
             html += '<div class="info-section-content"><div>';
+            html += '<div class="tuning-selector">';
+            for (var ti = 0; ti < GUITAR_TUNING_NAMES.length; ti++) {
+                var tn = GUITAR_TUNING_NAMES[ti];
+                html += '<button class="tuning-btn' + (selectedChordTuning === tn ? ' active' : '') + '" data-tuning="' + esc(tn) + '">' + esc(tn) + '</button>';
+            }
+            html += '</div>';
             html += '<div class="position-selector">';
             var posLabels = ['All', '1', '2', '3', '4', '5'];
             for (var pi = 0; pi < posLabels.length; pi++) {
                 var lbl = posLabels[pi];
-                html += '<button class="pos-btn' + (selectedChordPosition === lbl ? ' active' : '') + '" data-pos="' + lbl + '">' + lbl + '</button>';
+                var posAvailable = lbl === 'All' || parseInt(lbl, 10) <= chordPositions.length;
+                html += '<button class="pos-btn' + (selectedChordPosition === lbl ? ' active' : '') + '"' + (posAvailable ? '' : ' disabled') + ' data-pos="' + lbl + '">' + lbl + '</button>';
             }
             html += '</div>';
             if (selectedChordPosition === 'All') {
-                html += renderGuitarChordSvg(chordNotes, 0, 12);
+                html += renderGuitarChordSvg(chordNotes, 0, 12, chordTuning);
             } else {
                 var posIdx = parseInt(selectedChordPosition, 10) - 1;
                 if (posIdx >= 0 && posIdx < chordPositions.length) {
                     var win = positionWindow(chordPositions[posIdx]);
-                    html += renderGuitarChordSvg(chordNotes, win[0], win[1]);
+                    html += renderGuitarChordSvg(chordNotes, win[0], win[1], chordTuning);
+                } else {
+                    html += renderGuitarChordSvg(chordNotes, 0, 12, chordTuning);
                 }
             }
             html += '</div></div></div>';
@@ -1626,6 +1656,16 @@
                         });
                     })(posBtns[pb]);
                 }
+                var chordTuningBtns = result.querySelectorAll('.tuning-btn');
+                for (var tb = 0; tb < chordTuningBtns.length; tb++) {
+                    (function(btn) {
+                        btn.addEventListener('click', function() {
+                            selectedChordTuning = this.getAttribute('data-tuning');
+                            selectedChordPosition = 'All';
+                            updateChordBlocks();
+                        });
+                    })(chordTuningBtns[tb]);
+                }
             } else {
                 result.style.display = 'none';
             }
@@ -1706,6 +1746,15 @@
                 result.innerHTML = renderScaleResult(selectedTonic, selectedScaleType);
                 result.style.display = '';
                 makeCollapsible(result.querySelectorAll('.info-section h3'));
+                var scaleTuningBtns = result.querySelectorAll('.tuning-btn');
+                for (var tb = 0; tb < scaleTuningBtns.length; tb++) {
+                    (function(btn) {
+                        btn.addEventListener('click', function() {
+                            selectedScaleTuning = this.getAttribute('data-tuning');
+                            updateScaleBlocks();
+                        });
+                    })(scaleTuningBtns[tb]);
+                }
             } else {
                 result.style.display = 'none';
             }
