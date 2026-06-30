@@ -25,6 +25,7 @@ A **Chord Explorer** for any combination of root note, chord type, and inversion
 - **Staff notation** on a treble clef staff
 - **Piano keyboard** with the chord notes highlighted
 - **Inversions** — Root (default), First, Second, and Third inversion; Third is only enabled for four-note chords (tetrads), and First/Second are disabled for power chords
+- **Guitar fretboard** — shows all chord-tone positions across the neck; a position selector (All / 1–5) lets you zoom into any of the five standard neck positions
 
 Chord types available:
 Major, Minor, 7th, 5th, Diminished, Diminished 7th, Augmented, Suspended 2nd, Suspended 4th, Major 7th, Minor 7th, Major 6th, 7th Suspended 4th
@@ -36,6 +37,8 @@ A **Scale Explorer** for any combination of tonic and scale type. Select a tonic
 - **Scale notes** displayed as a text sequence
 - **Staff notation** on a treble clef staff
 - **Piano keyboard** with the scale notes highlighted
+- **Guitar fretboard** showing all scale positions across 12 frets (standard tuning)
+- **Bass guitar fretboard** showing all scale positions across 12 frets (standard tuning)
 
 Scale types available:
 - Major, Natural minor, Harmonic minor, Melodic minor

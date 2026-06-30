@@ -298,6 +298,7 @@
         .scale-sequence .sep { color: #c8c4bc; margin: 0 0.15em; }
         .staff-svg { width: 100%; height: auto; margin-top: 0.6rem; }
         .piano-svg { width: 100%; height: auto; margin-top: 0.6rem; }
+        .fretboard-svg { width: 100%; height: auto; margin-top: 0.6rem; }
 
         .scales-page {
             padding: 2rem;
@@ -352,6 +353,10 @@
         .scale-block:hover { background: #e4dfd6; color: #1c1917; }
         .scale-block.active { background: #2563eb; color: #fff; font-weight: 600; }
         .scale-block:disabled { opacity: 0.35; cursor: default; pointer-events: none; }
+        .position-selector { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 0.6rem; }
+        .pos-btn { padding: 0.25rem 0.65rem; border-radius: 6px; background: #f0ece5; color: #78716c; font-weight: 500; font-size: 0.82rem; cursor: pointer; border: none; font-family: inherit; transition: background 0.15s, color 0.15s; }
+        .pos-btn:hover { background: #e4dfd6; color: #1c1917; }
+        .pos-btn.active { background: #2563eb; color: #fff; font-weight: 600; }
         .scales-type-separator {
             font-size: 0.7rem;
             text-transform: uppercase;
@@ -647,6 +652,7 @@
         var selectedChordRoot = null;
         var selectedChordType = null;
         var selectedInversion = 'Root';
+        var selectedChordPosition = 'All';
 
         function mod(n, m) { return ((n % m) + m) % m; }
 
@@ -1246,6 +1252,180 @@
             return p;
         }
 
+        function renderFretboardSvg(notes, tuning) {
+            var FRETS = 12, FRET_W = 42, X_OPEN = 22, X_NUT = 46;
+            var STRING_SPACING = 20, STRING_START_Y = 18;
+            var numStrings = tuning.length;
+            var totalWidth  = X_NUT + FRETS * FRET_W + 8;
+            var totalHeight = STRING_START_Y + (numStrings - 1) * STRING_SPACING + 20;
+            var nutTop = STRING_START_Y - 5;
+            var nutBot = STRING_START_Y + (numStrings - 1) * STRING_SPACING + 5;
+
+            var semiToNote = {};
+            for (var i = 0; i < notes.length; i++) semiToNote[noteToSemitone(notes[i])] = notes[i];
+            var rootSemi = noteToSemitone(notes[0]);
+
+            var s = '<svg class="fretboard-svg" viewBox="0 0 ' + totalWidth + ' ' + totalHeight + '" xmlns="http://www.w3.org/2000/svg">';
+
+            // Position markers
+            var MARKER_FRETS = [3, 5, 7, 9, 12];
+            var centerY = STRING_START_Y + ((numStrings - 1) * STRING_SPACING) / 2;
+            for (var fi = 0; fi < MARKER_FRETS.length; fi++) {
+                var mf = MARKER_FRETS[fi];
+                var mx = X_NUT + (mf - 0.5) * FRET_W;
+                if (mf === 12) {
+                    var d1y = STRING_START_Y + STRING_SPACING / 2;
+                    var d2y = STRING_START_Y + (numStrings - 2) * STRING_SPACING + STRING_SPACING / 2;
+                    s += '<circle cx="' + mx + '" cy="' + d1y + '" r="3.5" fill="#e7e5e4"/>';
+                    s += '<circle cx="' + mx + '" cy="' + d2y + '" r="3.5" fill="#e7e5e4"/>';
+                } else {
+                    s += '<circle cx="' + mx + '" cy="' + centerY + '" r="3.5" fill="#e7e5e4"/>';
+                }
+            }
+
+            // Fret numbers
+            for (var f = 1; f <= FRETS; f++) {
+                s += '<text x="' + (X_NUT + (f - 0.5) * FRET_W) + '" y="' + (totalHeight - 3) + '" font-size="9" fill="#a8a29e" text-anchor="middle" font-family="\'Segoe UI\',system-ui,sans-serif">' + f + '</text>';
+            }
+
+            // Strings
+            for (var str = 0; str < numStrings; str++) {
+                var sy = STRING_START_Y + str * STRING_SPACING;
+                var th = numStrings === 4 ? (1.0 + str * 0.5) : (0.7 + str * 0.3);
+                s += '<line x1="' + X_OPEN + '" y1="' + sy + '" x2="' + (totalWidth - 3) + '" y2="' + sy + '" stroke="#a8a29e" stroke-width="' + th.toFixed(1) + '"/>';
+            }
+
+            // Nut and fret wires
+            s += '<line x1="' + X_NUT + '" y1="' + nutTop + '" x2="' + X_NUT + '" y2="' + nutBot + '" stroke="#44403c" stroke-width="4"/>';
+            for (var f = 1; f <= FRETS; f++) {
+                s += '<line x1="' + (X_NUT + f * FRET_W) + '" y1="' + nutTop + '" x2="' + (X_NUT + f * FRET_W) + '" y2="' + nutBot + '" stroke="#c8c4bc" stroke-width="1"/>';
+            }
+
+            // Note dots — str 0 = top = highest string = tuning[last]
+            for (var str = 0; str < numStrings; str++) {
+                var sy = STRING_START_Y + str * STRING_SPACING;
+                var openSemi = noteToSemitone(tuning[numStrings - 1 - str]);
+                for (var f = 0; f <= FRETS; f++) {
+                    var fSemi = (openSemi + f) % 12;
+                    if (!semiToNote.hasOwnProperty(fSemi)) continue;
+                    var noteName = semiToNote[fSemi];
+                    var isRoot = fSemi === rootSemi;
+                    var cx = f === 0 ? X_OPEN : X_NUT + (f - 0.5) * FRET_W;
+                    s += '<circle cx="' + cx + '" cy="' + sy + '" r="8" fill="' + (isRoot ? '#2563eb' : '#818cf8') + '"/>';
+                    s += '<text x="' + cx + '" y="' + (sy + 3.5) + '" font-size="7" fill="' + (isRoot ? '#fff' : '#312e81') + '" text-anchor="middle" font-weight="600" font-family="\'Segoe UI\',system-ui,sans-serif">' + esc(noteName) + '</text>';
+                }
+            }
+
+            s += '</svg>';
+            return s;
+        }
+
+        function computeChordPositions(rootSemi) {
+            var GUITAR_SEMIS = [4, 9, 2, 7, 11, 4];
+            var fretSet = {};
+            for (var i = 0; i < 6; i++) {
+                var f = (rootSemi - GUITAR_SEMIS[i] + 12) % 12;
+                fretSet[f] = true;
+                if (f + 12 <= 12) fretSet[f + 12] = true;
+            }
+            var frets = Object.keys(fretSet).map(Number).sort(function(a, b) { return a - b; });
+            var positions = [];
+            for (var i = 0; i < frets.length && positions.length < 5; i++) {
+                if (positions.length === 0 || frets[i] - positions[positions.length - 1] >= 2)
+                    positions.push(frets[i]);
+            }
+            return positions;
+        }
+
+        function positionWindow(rootFret) {
+            var start = Math.min(8, Math.max(0, rootFret - 1));
+            return [start, start + 4];
+        }
+
+        function renderGuitarChordSvg(notes, lowFret, highFret) {
+            var GUITAR_TUNING = ['E', 'A', 'D', 'G', 'B', 'E'];
+            var numStrings = 6, STRING_SPACING = 20, STRING_START_Y = 18;
+            var isFullView = (lowFret === 0 && highFret === 12);
+            var showOpen = (lowFret === 0);
+            var FRET_W = isFullView ? 42 : 72;
+            var X_NUT = showOpen ? 46 : 40;
+            var X_OPEN = 22;
+            var STR_START = showOpen ? 14 : 35;
+            var SPAN = isFullView ? highFret : (highFret - lowFret);
+            var totalWidth = X_NUT + SPAN * FRET_W + 8;
+            var totalHeight = STRING_START_Y + (numStrings - 1) * STRING_SPACING + 20;
+            var nutTop = STRING_START_Y - 5;
+            var nutBot = STRING_START_Y + (numStrings - 1) * STRING_SPACING + 5;
+
+            var semiToNote = {};
+            for (var i = 0; i < notes.length; i++) semiToNote[noteToSemitone(notes[i])] = notes[i];
+            var rootSemi = noteToSemitone(notes[0]);
+
+            var s = '<svg class="fretboard-svg" viewBox="0 0 ' + totalWidth + ' ' + totalHeight + '" xmlns="http://www.w3.org/2000/svg">';
+
+            // Position label
+            if (lowFret > 0) {
+                s += '<text x="4" y="' + (STRING_START_Y + 3) + '" font-size="10" fill="#78716c" font-family="\'Segoe UI\',system-ui,sans-serif" font-weight="600">' + (lowFret + 1) + 'fr</text>';
+            }
+
+            // Fret markers (full view only)
+            if (isFullView) {
+                var centerY = STRING_START_Y + ((numStrings - 1) * STRING_SPACING) / 2;
+                var MARKERS = [3, 5, 7, 9, 12];
+                for (var fi = 0; fi < MARKERS.length; fi++) {
+                    var mf = MARKERS[fi];
+                    var mx = X_NUT + (mf - 0.5) * FRET_W;
+                    if (mf === 12) {
+                        s += '<circle cx="' + mx + '" cy="' + (STRING_START_Y + STRING_SPACING / 2) + '" r="3.5" fill="#e7e5e4"/>';
+                        s += '<circle cx="' + mx + '" cy="' + (STRING_START_Y + (numStrings - 2) * STRING_SPACING + STRING_SPACING / 2) + '" r="3.5" fill="#e7e5e4"/>';
+                    } else {
+                        s += '<circle cx="' + mx + '" cy="' + centerY + '" r="3.5" fill="#e7e5e4"/>';
+                    }
+                }
+            }
+
+            // Fret numbers
+            var firstFret = showOpen ? 1 : lowFret + 1;
+            for (var f = firstFret; f <= highFret; f++) {
+                var si = isFullView ? f : (f - lowFret);
+                s += '<text x="' + (X_NUT + (si - 0.5) * FRET_W) + '" y="' + (totalHeight - 3) + '" font-size="9" fill="#a8a29e" text-anchor="middle" font-family="\'Segoe UI\',system-ui,sans-serif">' + f + '</text>';
+            }
+
+            // Strings
+            for (var str = 0; str < numStrings; str++) {
+                var sy = STRING_START_Y + str * STRING_SPACING;
+                s += '<line x1="' + STR_START + '" y1="' + sy + '" x2="' + (totalWidth - 3) + '" y2="' + sy + '" stroke="#a8a29e" stroke-width="' + (0.7 + str * 0.3).toFixed(1) + '"/>';
+            }
+
+            // Nut / position boundary
+            s += '<line x1="' + X_NUT + '" y1="' + nutTop + '" x2="' + X_NUT + '" y2="' + nutBot + '" stroke="' + (showOpen ? '#44403c' : '#c8c4bc') + '" stroke-width="' + (showOpen ? '4' : '1.5') + '"/>';
+
+            // Fret wires
+            for (var f = firstFret; f <= highFret; f++) {
+                var si = isFullView ? f : (f - lowFret);
+                s += '<line x1="' + (X_NUT + si * FRET_W) + '" y1="' + nutTop + '" x2="' + (X_NUT + si * FRET_W) + '" y2="' + nutBot + '" stroke="#c8c4bc" stroke-width="1"/>';
+            }
+
+            // Note dots
+            var fStart = showOpen ? 0 : lowFret + 1;
+            for (var str = 0; str < numStrings; str++) {
+                var sy = STRING_START_Y + str * STRING_SPACING;
+                var openStrSemi = noteToSemitone(GUITAR_TUNING[numStrings - 1 - str]);
+                for (var f = fStart; f <= highFret; f++) {
+                    var fSemi = (openStrSemi + f) % 12;
+                    if (!semiToNote.hasOwnProperty(fSemi)) continue;
+                    var noteName = semiToNote[fSemi];
+                    var isRoot = fSemi === rootSemi;
+                    var cx = (f === 0) ? X_OPEN : X_NUT + ((isFullView ? f : f - lowFret) - 0.5) * FRET_W;
+                    s += '<circle cx="' + cx + '" cy="' + sy + '" r="8" fill="' + (isRoot ? '#2563eb' : '#818cf8') + '"/>';
+                    s += '<text x="' + cx + '" y="' + (sy + 3.5) + '" font-size="7" fill="' + (isRoot ? '#fff' : '#312e81') + '" text-anchor="middle" font-weight="600" font-family="\'Segoe UI\',system-ui,sans-serif">' + esc(noteName) + '</text>';
+                }
+            }
+
+            s += '</svg>';
+            return s;
+        }
+
         function computeScale(tonic, intervals, letterOffsets) {
             var tonicLetter = tonic.charAt(0);
             var tonicLetterIdx = LETTER_NAMES.indexOf(tonicLetter);
@@ -1301,6 +1481,16 @@
             html += renderStaffSvg(notes8);
             html += renderPianoSvg(notes8);
             html += '</div></div></div>';
+            html += '<div class="info-section">';
+            html += '<h3><span class="collapse-indicator">▼</span>Guitar</h3>';
+            html += '<div class="info-section-content"><div>';
+            html += renderFretboardSvg(notes, ['E', 'A', 'D', 'G', 'B', 'E']);
+            html += '</div></div></div>';
+            html += '<div class="info-section">';
+            html += '<h3><span class="collapse-indicator">▼</span>Bass Guitar</h3>';
+            html += '<div class="info-section-content"><div>';
+            html += renderFretboardSvg(notes, ['E', 'A', 'D', 'G']);
+            html += '</div></div></div>';
             return html;
         }
 
@@ -1309,7 +1499,8 @@
             var letterOffsets = CHORD_TYPE_LETTER_OFFSETS[chordType];
             var r = (ENHARMONIC_FLAT.hasOwnProperty(root) && hasDoubleAccidental(root, intervals, letterOffsets))
                 ? ENHARMONIC_FLAT[root] : root;
-            var notes = computeScale(r, intervals, letterOffsets);
+            var chordNotes = computeScale(r, intervals, letterOffsets);
+            var notes = chordNotes.slice();
             var intervalNames = CHORD_TYPE_INTERVAL_NAMES[chordType].slice();
             var rotation = selectedInversion === 'First' ? 1 : selectedInversion === 'Second' ? 2 : selectedInversion === 'Third' ? 3 : 0;
             if (rotation > 0) {
@@ -1333,6 +1524,27 @@
             html += '</table>';
             html += renderStaffSvg(notes, true);
             html += renderPianoSvg(notes);
+            var chordPositions = computeChordPositions(noteToSemitone(r));
+            html += '<div class="info-section" style="margin-top:0.75rem">';
+            html += '<h3><span class="collapse-indicator">▼</span>Guitar</h3>';
+            html += '<div class="info-section-content"><div>';
+            html += '<div class="position-selector">';
+            var posLabels = ['All', '1', '2', '3', '4', '5'];
+            for (var pi = 0; pi < posLabels.length; pi++) {
+                var lbl = posLabels[pi];
+                html += '<button class="pos-btn' + (selectedChordPosition === lbl ? ' active' : '') + '" data-pos="' + lbl + '">' + lbl + '</button>';
+            }
+            html += '</div>';
+            if (selectedChordPosition === 'All') {
+                html += renderGuitarChordSvg(chordNotes, 0, 12);
+            } else {
+                var posIdx = parseInt(selectedChordPosition, 10) - 1;
+                if (posIdx >= 0 && posIdx < chordPositions.length) {
+                    var win = positionWindow(chordPositions[posIdx]);
+                    html += renderGuitarChordSvg(chordNotes, win[0], win[1]);
+                }
+            }
+            html += '</div></div></div>';
             return html;
         }
 
@@ -1347,6 +1559,7 @@
                     btn.textContent = tone;
                     btn.addEventListener('click', function() {
                         selectedChordRoot = (selectedChordRoot === tone) ? null : tone;
+                        selectedChordPosition = 'All';
                         updateChordBlocks();
                     });
                     rootList.appendChild(btn);
@@ -1359,6 +1572,7 @@
                     btn.textContent = type;
                     btn.addEventListener('click', function() {
                         selectedChordType = (selectedChordType === type) ? null : type;
+                        selectedChordPosition = 'All';
                         updateChordBlocks();
                     });
                     typeList.appendChild(btn);
@@ -1402,6 +1616,16 @@
             if (selectedChordRoot !== null && selectedChordType !== null) {
                 result.innerHTML = renderChordResult(selectedChordRoot, selectedChordType);
                 result.style.display = '';
+                makeCollapsible(result.querySelectorAll('.info-section h3'));
+                var posBtns = result.querySelectorAll('.pos-btn');
+                for (var pb = 0; pb < posBtns.length; pb++) {
+                    (function(btn) {
+                        btn.addEventListener('click', function() {
+                            selectedChordPosition = this.getAttribute('data-pos');
+                            updateChordBlocks();
+                        });
+                    })(posBtns[pb]);
+                }
             } else {
                 result.style.display = 'none';
             }
