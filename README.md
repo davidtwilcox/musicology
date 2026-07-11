@@ -16,6 +16,7 @@ An interactive **Circle of Fifths** visualization. Click any major or minor key 
   - **Parallel key** chords side-by-side with the current key
   - **Modal interchange** chords from all seven modes (Ionian through Locrian)
   - **Secondary Dominants & Tritone Substitution** — for each diatonic degree: the diatonic chord, its secondary dominant (V7/), and the tritone substitution (♭II7/)
+- **Chromatic Mediants** — the 6 chromatic mediants of the selected key, split into Upper (a 3rd above the tonic) and Lower (a 3rd below the tonic) groups; click any to see its notes and intervals
 
 ## Chords
 
