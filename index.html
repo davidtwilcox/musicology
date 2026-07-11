@@ -287,6 +287,26 @@
         }
         .borrowing-table .row-label:hover { background: transparent; }
 
+        .mediant-list {
+            list-style: none;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            padding: 0;
+            margin: 0;
+        }
+        .mediant-list li {
+            padding: 0.35rem 0.7rem;
+            border: 1px solid #e7e5e4;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        .mediant-list li:hover { background: #fafaf9; }
+        .mediant-list li.active-borrowed { background: #eff6ff; border-color: #bfdbfe; }
+
         .scale-sequence {
             font-size: 1rem;
             font-weight: 500;
@@ -854,6 +874,46 @@
             return name;
         }
 
+        function getChromaticMediants(tonic, quality) {
+            function root(semitoneOffset, letterOffset) {
+                var tonicLetterIdx = LETTER_NAMES.indexOf(tonic.charAt(0));
+                var tonicSemi = noteToSemitone(tonic);
+                var letterIdx = mod(tonicLetterIdx + letterOffset, 7);
+                var targetSemi = mod(tonicSemi + semitoneOffset, 12);
+                var diff = targetSemi - LETTER_SEMITONES[letterIdx];
+                if (diff > 6) diff -= 12;
+                if (diff < -6) diff += 12;
+                var acc = diff === 2 ? '♯♯' : diff === 1 ? '♯' : diff === -1 ? '♭' : diff === -2 ? '♭♭' : '';
+                return LETTER_NAMES[letterIdx] + acc;
+            }
+            function triad(r, chordQuality, color) {
+                var intervals = chordQuality === 'Major' ? [0, 4, 7] : [0, 3, 7];
+                var letterOffsets = [0, 2, 4];
+                if (hasDoubleAccidental(r, intervals, letterOffsets)) r = simplifyDoubleAccidental(r);
+                var notes = computeScale(r, intervals, letterOffsets);
+                return {
+                    name: notes[0] + (chordQuality === 'Minor' ? 'm' : ''),
+                    color: color,
+                    tones: [
+                        { note: notes[0], interval: INTERVAL_NAMES[chordQuality][0] },
+                        { note: notes[1], interval: INTERVAL_NAMES[chordQuality][1] },
+                        { note: notes[2], interval: INTERVAL_NAMES[chordQuality][2] }
+                    ]
+                };
+            }
+            var upperMaj3 = root(4, 2), upperMin3 = root(3, 2);
+            var lowerMin3 = root(-3, -2), lowerMaj3 = root(-4, -2);
+            var upper, lower;
+            if (quality === 'major') {
+                upper = [triad(upperMaj3, 'Major', CHORD_COLORS.mediant), triad(upperMin3, 'Major', CHORD_COLORS.mediant), triad(upperMin3, 'Minor', CHORD_COLORS.mediant)];
+                lower = [triad(lowerMin3, 'Major', CHORD_COLORS.submediant), triad(lowerMaj3, 'Major', CHORD_COLORS.submediant), triad(lowerMaj3, 'Minor', CHORD_COLORS.submediant)];
+            } else {
+                upper = [triad(upperMaj3, 'Major', CHORD_COLORS.mediant), triad(upperMaj3, 'Minor', CHORD_COLORS.mediant), triad(upperMin3, 'Minor', CHORD_COLORS.mediant)];
+                lower = [triad(lowerMin3, 'Major', CHORD_COLORS.submediant), triad(lowerMin3, 'Minor', CHORD_COLORS.submediant), triad(lowerMaj3, 'Minor', CHORD_COLORS.submediant)];
+            }
+            return { upper: upper, lower: lower };
+        }
+
         function keyDisplayName(ring, pos) {
             var raw = ring === 'major' ? KEYS[pos].major : KEYS[pos].minor;
             var quality = ring === 'major' ? ' Major' : ' Minor';
@@ -978,6 +1038,18 @@
             return ((v % 12) + 12) % 12;
         }
 
+        function simplifyDoubleAccidental(note) {
+            var letterIdx = LETTER_NAMES.indexOf(note.charAt(0));
+            var semi = noteToSemitone(note);
+            var isSharp = note.charAt(1) === '♯';
+            var newLetterIdx = mod(letterIdx + (isSharp ? 1 : -1), 7);
+            var diff = semi - LETTER_SEMITONES[newLetterIdx];
+            if (diff > 6) diff -= 12;
+            if (diff < -6) diff += 12;
+            var acc = diff === 1 ? '♯' : diff === -1 ? '♭' : '';
+            return LETTER_NAMES[newLetterIdx] + acc;
+        }
+
         var MODE_NAMES = ['Ionian','Dorian','Phrygian','Lydian','Mixolydian','Aeolian','Locrian'];
         var ROMAN_UPPER = ['I','II','III','IV','V','VI','VII'];
         var ROMAN_LOWER = ['i','ii','iii','iv','v','vi','vii'];
@@ -1027,6 +1099,12 @@
         function showModalChordTones(tonic, modeName, chordIdx) {
             var chord = getModalChords(tonic, modeName)[chordIdx];
             renderChordToneDisplay(chord.num + ' — ' + chord.name, chord.tones, chord.color);
+        }
+
+        function showChromaticMediantTones(tonic, quality, group, idx) {
+            var chord = getChromaticMediants(tonic, quality)[group][idx];
+            var label = group === 'upper' ? 'Upper Mediant' : 'Lower Mediant';
+            renderChordToneDisplay(label + ' — ' + chord.name, chord.tones, chord.color);
         }
 
         function computeSecondaryDominant(targetRoot) {
@@ -2054,6 +2132,26 @@
 
             html += '</div></div></div>';
 
+            var mediants = getChromaticMediants(tonic, selectedRing);
+            html += '<div class="info-section">';
+            html += '<h3><span class="collapse-indicator">▼</span>Chromatic Mediants</h3>';
+            html += '<div class="info-section-content"><div>';
+            html += '<p class="borrowing-sub-label">Upper Mediants (a third above tonic)</p>';
+            html += '<ul class="mediant-list">';
+            for (var umi = 0; umi < mediants.upper.length; umi++) {
+                var um = mediants.upper[umi];
+                html += '<li data-med-tonic="' + esc(tonic) + '" data-med-quality="' + selectedRing + '" data-med-group="upper" data-med-idx="' + umi + '">' + esc(um.name) + '</li>';
+            }
+            html += '</ul>';
+            html += '<p class="borrowing-sub-label" style="margin-top:0.75rem">Lower Mediants (a third below tonic)</p>';
+            html += '<ul class="mediant-list">';
+            for (var lmi = 0; lmi < mediants.lower.length; lmi++) {
+                var lm = mediants.lower[lmi];
+                html += '<li data-med-tonic="' + esc(tonic) + '" data-med-quality="' + selectedRing + '" data-med-group="lower" data-med-idx="' + lmi + '">' + esc(lm.name) + '</li>';
+            }
+            html += '</ul>';
+            html += '</div></div></div>';
+
             infoDetail.innerHTML = html;
 
             document.getElementById('clear-btn').addEventListener('click', clearSelection);
@@ -2074,7 +2172,7 @@
                 activeChordIdx = null;
                 var dRows = infoDetail.querySelectorAll('.chord-table tr[data-chord-idx]');
                 for (var x = 0; x < dRows.length; x++) dRows[x].classList.remove('active-chord');
-                var allBorrow = infoDetail.querySelectorAll('.borrowing-table td.active-borrowed');
+                var allBorrow = infoDetail.querySelectorAll('.borrowing-table td.active-borrowed, .mediant-list li.active-borrowed');
                 for (var x = 0; x < allBorrow.length; x++) allBorrow[x].classList.remove('active-borrowed');
                 var chordPanel = document.getElementById('chord-info-panel');
                 chordPanel.style.display = 'none';
@@ -2124,6 +2222,23 @@
                             this.getAttribute('data-modal-tonic'),
                             this.getAttribute('data-modal-mode'),
                             parseInt(this.getAttribute('data-modal-idx'), 10)
+                        );
+                    }
+                });
+            }
+
+            var mediantCells = infoDetail.querySelectorAll('.mediant-list li[data-med-idx]');
+            for (var mdc = 0; mdc < mediantCells.length; mdc++) {
+                mediantCells[mdc].addEventListener('click', function() {
+                    var isActive = this.classList.contains('active-borrowed');
+                    clearAllChordSelections();
+                    if (!isActive) {
+                        this.classList.add('active-borrowed');
+                        showChromaticMediantTones(
+                            this.getAttribute('data-med-tonic'),
+                            this.getAttribute('data-med-quality'),
+                            this.getAttribute('data-med-group'),
+                            parseInt(this.getAttribute('data-med-idx'), 10)
                         );
                     }
                 });
