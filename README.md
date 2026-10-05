@@ -49,3 +49,7 @@ Scale types available:
 ## Usage
 
 Open `index.html` in a web browser. No build step or dependencies required.
+
+## Development
+
+See [AGENTS.md](AGENTS.md) for guidance on working in this codebase (architecture, code style, and music theory conventions).
