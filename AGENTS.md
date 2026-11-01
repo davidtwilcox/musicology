@@ -28,13 +28,19 @@ For a CLI fallback, use `semble search "query" .` or `uvx --from "semble[mcp]==0
 
 ## Project Overview
 
-Musicology is an interactive web application for exploring music theory concepts. It is a static site with no build step, no dependencies, and no test framework.
+Musicology is an interactive web application for exploring music theory concepts. It is a static site with no build step or runtime dependencies. Unit tests use Node's built-in test runner; browser and layout tests use Playwright with Chromium.
 
 ## Development
 
-Open `index.html` directly in a browser (`start index.html` on Windows or `open index.html` on macOS). There is no build, lint, or test command and no dependency installation is required.
+Open `index.html` directly in a browser (`start index.html` on Windows or `open index.html` on macOS). There is no build or lint command. Run `npm test` (or `node --test`) with Node.js 22 or newer for unit tests; these need no dependency installation. For browser tests, run `npm ci` and `npx playwright install chromium` once, then `npm run test:browser`. Use `npm run test:all` for both suites.
+
+The tests live in `tests/*.test.cjs`. `tests/helpers/load-app.cjs` loads the actual inline application script in a Node VM and injects test exports before UI startup. Keep production code self-contained; update the helper's explicit export list if a new function needs testing. The helper validates its startup boundary so structural changes fail visibly. DOM fixtures cover selected handlers and renderers, not full browser integration or layout.
+
+Browser tests live in `browser-tests/*.spec.cjs`, with configuration in `playwright.config.cjs`. They load the real HTML via a file URL at desktop, tablet, and phone viewport sizes. Assert observable UI state and layout geometry; do not replace the application logic with mocks. Failures preserve screenshots and traces, and successful layout tests attach screenshots to the HTML report (`npm run test:browser:report`). `playwright-report/` and `test-results/` are generated and must not be committed. No server or pixel snapshot baselines are required. Chromium is the currently tested browser engine.
 
 After code changes:
+
+- Run `npm test`; also run `npm run test:browser` for UI or layout changes. Add regression cases for changed behavior, using concrete expected notes, chord names, interaction outcomes, or geometry assertions.
 
 - Verify the affected flows visually in a browser, including selection, deselection, disabled states, keyboard controls, and narrow layouts as relevant.
 - For music-theory changes, check representative major, minor, modal, and enharmonic cases, plus any affected inversions.

@@ -431,6 +431,16 @@
             .scales-selector { flex-wrap: wrap; }
             #scale-result, #chord-result, #progression-result { width: 100%; }
         }
+        @media (max-width: 480px) {
+            .tab-bar { padding: 0; }
+            .tab-btn { flex: 1; padding: 0.65rem 0.5rem; }
+            main, .scales-page { padding: 1rem; }
+            #info-panel, #chord-info-panel, #scale-result, #chord-result, #progression-result {
+                padding: 1rem;
+                min-width: 0;
+            }
+            .scales-selector { max-width: 100%; }
+        }
     </style>
 </head>
 <body>
