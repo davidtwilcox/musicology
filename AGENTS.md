@@ -12,6 +12,14 @@ These instructions apply to all files in this repository. This file is the canon
 - Preserve unrelated changes in the working tree. Keep edits focused on the requested task.
 - Update this file when architecture or development workflows change. Keep `CLAUDE.md` as a pointer rather than duplicating these instructions.
 
+## Code style
+
+- Match the surrounding indentation and JavaScript conventions. Use `UPPER_SNAKE_CASE` for shared data tables and `camelCase` for functions.
+- Derive music-theory data algorithmically using intervals and letter arithmetic rather than hardcoded lookup tables.
+- Use Unicode accidentals (♯, ♭, ♯♯, ♭♭, °) in data and markup rather than ASCII substitutes.
+- Do not add external dependencies, build tooling, or split the application into separate files unless explicitly requested.
+- Keep `README.md` in sync when adding or changing user-facing features; it is the human-oriented documentation.
+
 ## Code search
 
 Use the Semble MCP search tool to locate implementations before reading the relevant function or class. Use `content="docs"` for prose, `content="config"` for configuration, or `content="all"` for both code and supporting files. Navigate directly to returned locations rather than repeating the search with grep.
@@ -24,7 +32,7 @@ Musicology is an interactive web application for exploring music theory concepts
 
 ## Development
 
-Open `index.html` directly in a browser (`start index.html` on Windows). There is no build, lint, or test command and no dependency installation is required.
+Open `index.html` directly in a browser (`start index.html` on Windows or `open index.html` on macOS). There is no build, lint, or test command and no dependency installation is required.
 
 After code changes:
 
