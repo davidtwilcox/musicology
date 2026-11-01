@@ -336,7 +336,7 @@
             gap: 1.25rem;
             align-items: flex-start;
         }
-        #scale-result, #chord-result {
+        #scale-result, #chord-result, #progression-result {
             flex: 1;
             background: #fff;
             border-radius: 12px;
@@ -344,7 +344,7 @@
             box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
             min-width: 260px;
         }
-        #scale-result h2, #chord-result h2 { font-size: 1.3rem; margin-bottom: 0.25rem; }
+        #scale-result h2, #chord-result h2, #progression-result h2 { font-size: 1.3rem; margin-bottom: 0.25rem; }
         .scales-col { flex: 1; }
         .scales-col-header {
             font-size: 0.75rem;
@@ -429,7 +429,7 @@
             #chord-info-panel { flex: none; width: 100%; max-width: 480px; position: static; }
             .scales-layout { flex-direction: column; }
             .scales-selector { flex-wrap: wrap; }
-            #scale-result, #chord-result { width: 100%; }
+            #scale-result, #chord-result, #progression-result { width: 100%; }
         }
     </style>
 </head>
@@ -442,6 +442,7 @@
         <button class="tab-btn active" data-tab="keys" role="tab" id="tab-btn-keys" aria-selected="true" aria-controls="tab-keys">Keys</button>
         <button class="tab-btn" data-tab="scales" role="tab" id="tab-btn-scales" aria-selected="false" aria-controls="tab-scales">Scales</button>
         <button class="tab-btn" data-tab="chords" role="tab" id="tab-btn-chords" aria-selected="false" aria-controls="tab-chords">Chords</button>
+        <button class="tab-btn" data-tab="progressions" role="tab" id="tab-btn-progressions" aria-selected="false" aria-controls="tab-progressions">Progressions</button>
     </nav>
     <div class="tab-content active" id="tab-keys" role="tabpanel" aria-labelledby="tab-btn-keys">
         <main>
@@ -495,6 +496,28 @@
                     </div>
                 </div>
                 <div id="chord-result" style="display:none"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="tab-content" id="tab-progressions" role="tabpanel" aria-labelledby="tab-btn-progressions">
+        <div class="scales-page">
+            <div class="scales-layout">
+                <div class="scales-selector">
+                    <div class="scales-col">
+                        <div class="scales-col-header">Tonic</div>
+                        <div id="progression-tonic-list"></div>
+                    </div>
+                    <div class="scales-col">
+                        <div class="scales-col-header">Scale Type</div>
+                        <div id="progression-type-list"></div>
+                    </div>
+                    <div class="scales-col">
+                        <div class="scales-col-header">Progression</div>
+                        <div id="progression-list"></div>
+                    </div>
+                </div>
+                <div id="progression-result" style="display:none"></div>
             </div>
         </div>
     </div>
@@ -1657,6 +1680,142 @@
             return html;
         }
 
+        var PROGRESSIONS = ['i-VI-II-VII', 'vi-IV-I-V', 'i-v-♭VII-IV', 'I-V-vi-IV', 'vi-IV-I-V', 'I-vi-IV-V', 'i-VI-III-VII', 'i-VII-VI-V', 'i-VI-VII', 'i-iv-V7-i'];
+        // Sort new entries automatically: compare each chord's degree, then
+        // quality (major, minor, diminished), before moving to the next chord.
+        PROGRESSIONS.sort(compareProgressions);
+
+        function compareProgressions(left, right) {
+            var degrees = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'];
+            function chordOrder(chord) {
+                var numeral = chord.match(/[ivIV]+/)[0];
+                var quality = /[°º]|dim/i.test(chord) ? 2 : numeral === numeral.toUpperCase() ? 0 : 1;
+                return [degrees.indexOf(numeral.toUpperCase()), quality];
+            }
+            var a = left.split('-'), b = right.split('-');
+            for (var i = 0; i < Math.min(a.length, b.length); i++) {
+                var first = chordOrder(a[i]), second = chordOrder(b[i]);
+                var difference = first[0] - second[0] || first[1] - second[1];
+                if (difference) return difference;
+            }
+            return a.length - b.length;
+        }
+
+        var progressionTonic = null, progressionScale = null, selectedProgression = null;
+        var progressionInversions = [];
+
+        // Bare numerals refer to the scale's degrees. ♭VII explicitly means
+        // the pitch ten semitones above the tonic, even in a minor mode.
+        function getProgressionChords(tonic, scaleType, progression) {
+            var scale = computeScaleNotes(tonic, scaleType);
+            var pitches = scale.map(noteToSemitone);
+            var offsets = SCALE_LETTER_OFFSETS[scaleType] || SCALE_INTERVALS[scaleType].map(function(_, i) { return i; });
+            var numerals = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'];
+            var degrees = ['Tonic', 'Supertonic', 'Mediant', 'Subdominant', 'Dominant', 'Submediant', 'Subtonic'];
+            var chords = [];
+            var tokens = progression.split('-');
+            for (var i = 0; i < tokens.length; i++) {
+                var token = tokens[i];
+                var numeral = token.replace(/^♭/, '').replace(/7$/, '');
+                var degree = numerals.indexOf(numeral.toUpperCase());
+                var rootIndex = offsets.indexOf(degree);
+                if (token.charAt(0) === '♭') {
+                    rootIndex = pitches.indexOf(mod(pitches[0] + 10, 12));
+                }
+                if (rootIndex === -1) return null;
+                var root = scale[rootIndex];
+                var type = /7$/.test(token) ? '7th' : numeral === numeral.toUpperCase() ? 'Major' : 'Minor';
+                var notes = computeScale(root, CHORD_TYPE_INTERVALS[type], CHORD_TYPE_LETTER_OFFSETS[type]);
+                if (!notes.every(function(note) { return pitches.indexOf(noteToSemitone(note)) !== -1; })) return null;
+                var degreeName = degree === 6 && mod(noteToSemitone(root) - pitches[0], 12) === 11 ? 'Leading tone' : degrees[degree];
+                chords.push({ numeral: token, name: root + (type === 'Minor' ? 'm' : type === '7th' ? '7' : ''),
+                    quality: type === '7th' ? 'Dominant 7th' : type, degree: degreeName, color: DEGREE_COLORS[degree], notes: notes });
+            }
+            return chords;
+        }
+
+        function buildProgressionsTab() {
+            function addSelector(id, values, getSelected, select, grouped) {
+                var list = document.getElementById(id);
+                values.forEach(function(value, index) {
+                    if (grouped && (index === 4 || index === 11)) {
+                        var separator = document.createElement('div');
+                        separator.className = 'scales-type-separator';
+                        separator.textContent = index === 4 ? 'Modes' : 'Other';
+                        list.appendChild(separator);
+                    }
+                    var button = document.createElement('button');
+                    button.className = 'scale-block';
+                    button.textContent = value;
+                    button.addEventListener('click', function() {
+                        select(getSelected() === index ? null : index);
+                        progressionInversions = [];
+                        updateProgressionBlocks();
+                    });
+                    list.appendChild(button);
+                });
+            }
+            addSelector('progression-tonic-list', CHROMATIC_TONES, function() { return CHROMATIC_TONES.indexOf(progressionTonic); }, function(i) { progressionTonic = i === null ? null : CHROMATIC_TONES[i]; });
+            addSelector('progression-type-list', SCALE_TYPES, function() { return SCALE_TYPES.indexOf(progressionScale); }, function(i) { progressionScale = i === null ? null : SCALE_TYPES[i]; }, true);
+            addSelector('progression-list', PROGRESSIONS, function() { return selectedProgression; }, function(i) { selectedProgression = i; });
+            updateProgressionBlocks();
+        }
+
+        function updateProgressionBlocks() {
+            ['tonic', 'type'].forEach(function(kind) {
+                var values = kind === 'tonic' ? CHROMATIC_TONES : SCALE_TYPES;
+                var selected = kind === 'tonic' ? progressionTonic : progressionScale;
+                document.querySelectorAll('#progression-' + kind + '-list .scale-block').forEach(function(button, i) {
+                    button.classList.toggle('active', values[i] === selected);
+                    button.setAttribute('aria-pressed', String(values[i] === selected));
+                });
+            });
+            var available = PROGRESSIONS.map(function(progression) {
+                return progressionScale ? getProgressionChords(progressionTonic || 'C', progressionScale, progression) : null;
+            });
+            if (selectedProgression !== null && !available[selectedProgression]) {
+                selectedProgression = null;
+                progressionInversions = [];
+            }
+            document.querySelectorAll('#progression-list .scale-block').forEach(function(button, i) {
+                button.disabled = !available[i];
+                button.classList.toggle('active', selectedProgression === i);
+                button.setAttribute('aria-pressed', String(selectedProgression === i));
+                button.title = available[i] ? '' : progressionScale ? 'Contains chords outside this scale or mode' : 'Select a scale or mode first';
+            });
+            var result = document.getElementById('progression-result');
+            result.style.display = progressionTonic && selectedProgression !== null ? '' : 'none';
+            if (!progressionTonic || selectedProgression === null) { result.innerHTML = ''; return; }
+            var chords = available[selectedProgression];
+            var html = '<h2>' + esc(computeScaleNotes(progressionTonic, progressionScale)[0] + ' ' + progressionScale) + '</h2>';
+            html += '<p class="scale-sequence">' + esc(PROGRESSIONS[selectedProgression]) + '</p>';
+            html += '<table class="chord-table"><tr><th>Numeral</th><th>Chord</th><th>Quality</th><th>Degree</th></tr>';
+            chords.forEach(function(chord) {
+                html += '<tr><td class="numeral-cell" style="color:' + chord.color + '">' + esc(chord.numeral) + '</td><td class="chord-name-cell">' + esc(chord.name) + '</td><td class="quality-cell">' + esc(chord.quality) + '</td><td class="quality-cell">' + esc(chord.degree) + '</td></tr>';
+            });
+            html += '</table>';
+            chords.forEach(function(chord, index) {
+                html += '<section class="info-section"><h3>' + esc(chord.numeral + ' · ' + chord.name) + '</h3>';
+                html += '<div class="position-selector" role="group" aria-label="Inversion for chord ' + (index + 1) + '">';
+                var inversion = progressionInversions[index] || 0;
+                chord.notes.forEach(function(_, rotation) {
+                    var label = rotation === 0 ? 'Root' : INVERSIONS[rotation] + ' inversion';
+                    html += '<button class="pos-btn' + (inversion === rotation ? ' active' : '') + '" aria-pressed="' + (inversion === rotation) + '" data-chord="' + index + '" data-inversion="' + rotation + '">' + label + '</button>';
+                });
+                html += '</div>' + renderPianoSvg(chord.notes.slice(inversion).concat(chord.notes.slice(0, inversion))) + '</section>';
+            });
+            result.innerHTML = html;
+            result.querySelectorAll('[data-inversion]').forEach(function(button) {
+                button.addEventListener('click', function() {
+                    var index = Number(this.getAttribute('data-chord'));
+                    var inversion = Number(this.getAttribute('data-inversion'));
+                    progressionInversions[index] = inversion;
+                    updateProgressionBlocks();
+                    result.querySelector('[data-chord="' + index + '"][data-inversion="' + inversion + '"]').focus();
+                });
+            });
+        }
+
         function buildChordsTab() {
             var rootList = document.getElementById('chord-root-list');
             var typeList = document.getElementById('chord-type-list');
@@ -1754,7 +1913,7 @@
             for (var i = 0; i < headers.length; i++) {
                 headers[i].setAttribute('role', 'button');
                 headers[i].setAttribute('tabindex', '0');
-                headers[i].setAttribute('aria-expanded', 'true');
+                headers[i].setAttribute('aria-expanded', headers[i].parentElement.classList.contains('collapsed') ? 'false' : 'true');
                 (function(h) {
                     function toggle() {
                         var isNowCollapsed = h.parentElement.classList.toggle('collapsed');
@@ -2030,7 +2189,7 @@
             html += '</div></div></div>';
 
             var parChords = getChords(parRing, parPos);
-            html += '<div class="info-section">';
+            html += '<div class="info-section collapsed">';
             html += '<h3><span class="collapse-indicator">▼</span>Chord Borrowing</h3>';
             html += '<div class="info-section-content"><div>';
             html += '<p class="borrowing-sub-label">Parallel ' + (parRing === 'major' ? 'Major' : 'Minor') + '</p>';
@@ -2133,7 +2292,7 @@
             html += '</div></div></div>';
 
             var mediants = getChromaticMediants(tonic, selectedRing);
-            html += '<div class="info-section">';
+            html += '<div class="info-section collapsed">';
             html += '<h3><span class="collapse-indicator">▼</span>Chromatic Mediants</h3>';
             html += '<div class="info-section-content"><div>';
             html += '<p class="borrowing-sub-label">Upper Mediants (a third above tonic)</p>';
@@ -2282,6 +2441,7 @@
         buildCircle();
         buildScalesTab();
         buildChordsTab();
+        buildProgressionsTab();
 
         var tabBtns = document.querySelectorAll('.tab-btn');
         for (var t = 0; t < tabBtns.length; t++) {
